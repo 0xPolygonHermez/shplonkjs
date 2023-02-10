@@ -1,0 +1,31 @@
+{
+  "name": "shplonkjs",
+  "version": "0.0.1",
+  "description": "shPLONK javascript implementation",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xPolygonHermez/shplonkjs.git"
+  },
+  "keywords": [
+    "shplonk",
+    "plonk",
+    "zk",
+    "snarks",
+    "zksnarks",
+    "zero",
+    "knowledge",
+    "snarkjs",
+    "polynomial",
+    "commitment"
+  ],
+  "author": "Polygon Hermez",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/0xPolygonHermez/shplonkjs/issues"
+  },
+  "homepage": "https://github.com/0xPolygonHermez/shplonkjs#readme"
+}
