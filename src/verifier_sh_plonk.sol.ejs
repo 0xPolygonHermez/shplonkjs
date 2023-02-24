@@ -1,0 +1,545 @@
+// SPDX-License-Identifier: GPL-3.0
+/*
+    Copyright 2021 0KIMS association.
+
+    This file is generated with [snarkJS](https://github.com/iden3/snarkjs).
+
+    snarkJS is a free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    snarkJS is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+    or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+    License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with snarkJS. If not, see <https://www.gnu.org/licenses/>.
+*/
+
+pragma solidity >=0.7.0 <0.9.0;
+
+contract ShPlonkVerifier {
+
+    uint32 constant n = <%= 2**vk.power %>; // Domain size
+
+    // Verification Key data
+    // Omegas
+<% for (let i = 0; i < Object.keys(ws).length; ++i) { -%>
+    uint256 constant <%- Object.keys(ws)[i] %> = <%= ws[Object.keys(ws)[i]] %>;
+<% } -%>
+   
+    // Verifier preprocessed input x·[1]_2
+    uint256 constant X2x1 = <%= vk.X_2[0][0] %>;
+    uint256 constant X2x2 = <%= vk.X_2[0][1] %>;
+    uint256 constant X2y1 = <%= vk.X_2[1][0] %>;
+    uint256 constant X2y2 = <%= vk.X_2[1][1] %>;
+
+    // Scalar field size
+    uint256 constant q    = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
+    // Base field size
+    uint256 constant qf   = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
+
+<%  for(let i = 0; i < f.length; ++i) { -%>
+<%      if(!f[i].includedProof) {  -%>
+    uint256 constant f<%- f[i].index %>x = <%= vk[`f${f[i].index}`][0] %>;
+    uint256 constant f<%- f[i].index %>y = <%= vk[`f${f[i].index}`][1] %>;
+<%      } -%>
+<%  } -%>
+
+    // [1]_1
+    uint256 constant G1x  = 1;
+    uint256 constant G1y  = 2;
+    // [1]_2
+    uint256 constant G2x1 = 10857046999023057135944570762232829481370756359578518086990519993285655852781;
+    uint256 constant G2x2 = 11559732032986387107991004021392285783925812861821192530917403151452391805634;
+    uint256 constant G2y1 = 8495653923123431417604973247489272438418190587263600148770280649306958101930;
+    uint256 constant G2y2 = 4082367875863433681332203403145435568316851327593401208105741076214120093531;
+
+    // Proof data
+    // Byte offset of every parameter in `bytes memory proof`
+    // Polynomial commitments W and Wp
+    uint16 constant pW1 = 32;
+    uint16 constant pW2 = 96;
+
+    // Polynomial commitments fi
+<%  let count = 160; -%>
+<%  for(let i = 0; i < f.length; ++i) { -%>
+<%      if(f[i].includedProof) { -%>
+    uint16 constant pf<%- f[i].index %> = <%- count %>;
+<%      count += 64 -%>
+<%      } -%>
+<%  } -%>
+    // Opening evaluations
+<%  for(let i = 0; i < orderedEvals.length; ++i) { -%>
+    uint16 constant pEval_<%- orderedEvals[i] %> = <%- count %>;
+<% count += 32 -%>
+<%  } -%>
+    uint16 constant pXiSeed = <%- count %>;
+
+    // Memory data
+    // Challenges
+    uint16 constant pY      = 0;
+    uint16 constant pAlpha  = 32;
+
+<%  let memC = 64; -%>
+    // XiSeeds
+<%  for (let i = 0; i < fiDegrees.length; ++i) { -%>
+    uint16 constant pXiSeed_w<%- fiDegrees[i].degree %> = <%- memC %>;
+<%      memC += 32; -%>
+<% } -%>
+
+    // Roots
+<%  let rcounter = 0; -%>
+<%  for(let i = 0; i < f.length; i++) { -%>
+<%      for(let k = 0; k < f[i].openingPoints.length; k++) { -%> 
+<%          for(let l = 0; l < f[i].pols.length; l++) { -%>
+    uint16 constant pH<%- rcounter %>w<%- f[i].pols.length %>_<%- l + k*f[i].pols.length %> = <%- memC %>;
+<%              memC += 32; -%>
+<%          } -%>
+<%      } -%>
+<%      rcounter++ -%>
+<%  } -%>
+
+<%  for(let i = 0; i < f.length; ++i) { -%>
+    uint16 constant pR<%- i %> = <%- memC %>; // r<%- i %>(y)
+<%      memC += 32 -%>
+<%  } -%>
+   
+    uint16 constant pF = <%- memC %>; // [F]_1, 64 bytes
+    uint16 constant pE = <%- memC + 64 %>; // [E]_1, 64 bytes
+    uint16 constant pJ = <%- memC + 64 * 2 %>; // [J]_1, 64 bytes
+<%  memC += 64*3 -%>
+
+<%  for(let i = 1; i < f.length; ++i) { -%>
+    uint16 constant pQuotient<%- i %> = <%- memC %>;
+<%      memC += 32 -%>
+<%  } -%>
+
+    // From this point we write all the variables that must compute the inverse using the Montgomery batch inversion
+<%  for(let i = 1; i < f.length; ++i) { -%>
+    uint16 constant pDenH<%- i %> = <%- memC %>;
+<%      memC += 32 -%>
+<%  } -%>
+
+<%  for(let i = 0; i < f.length; ++i) { -%>
+<%      for(let j = 0; j < f[i].pols.length * f[i].openingPoints.length; ++j) { -%>
+    uint16 constant pLiS<%- i %>Inv_<%- j %> = <%- memC %>;
+<%      memC += 32 -%>
+<% } -%>
+<%  } -%>
+
+<%  let pLastMem = memC -%>
+    uint16 constant lastMem = <%- pLastMem %>;
+
+    function verifyProof(bytes memory proof) public view returns (bool) {
+        assembly {
+            // Computes the inverse of an array of values
+            // See https://vitalik.ca/general/2018/07/21/starks_part_3.html in section where explain fields operations
+            // To save the inverse to be computed on chain the prover sends the inverse as an evaluation in proof.eval_inv
+            function inverseArray(pProof, pVals, n) {
+
+                let pAux := mload(0x40)     // Point to the next free position
+                let pIn := pVals
+                let lastPIn := add(pVals, mul(n, 32))  // Read n elemnts
+                let acc := mload(pIn)       // Read the first element
+                pIn := add(pIn, 32)         // Point to the second element
+
+                for { } lt(pIn, lastPIn) {
+                    pAux := add(pAux, 32)
+                    pIn := add(pIn, 32)
+                }
+                {
+                    mstore(pAux, acc)
+                    acc := mulmod(acc, mload(pIn), q)
+                }
+
+                let inv := mload(add(pProof, pEval_inv))
+
+                // Before using the inverse sent by the prover the verifier checks inv(batch) * batch === 1
+                if iszero(eq(1, mulmod(acc, inv, q))) {
+                    mstore(0, 0)
+                    return(0,0x20)
+                }
+
+                acc := inv
+
+                // At this point pAux point to the next free position we substract 1 to point to the last used
+                pAux := sub(pAux, 32)
+                // pIn points to the n+1 element, we substract to point to n
+                pIn := sub(pIn, 32)
+                lastPIn := pVals  // We don't process the first element
+                for { } gt(pIn, lastPIn) {
+                    pAux := sub(pAux, 32)
+                    pIn := sub(pIn, 32)
+                }
+                {
+                    inv := mulmod(acc, mload(pAux), q)
+                    acc := mulmod(acc, mload(pIn), q)
+                    mstore(pIn, inv)
+                }
+                // pIn points to first element, we just set it.
+                mstore(pIn, acc)
+            }
+            
+            function checkField(v) {
+                if iszero(lt(v, q)) {
+                    mstore(0, 0)
+                    return(0,0x20)
+                }
+            }
+
+            // Validate all the evaluations sent by the prover ∈ F
+            function checkInput(pProof) {
+                if iszero(eq(mload(pProof), <%- (f.filter(fi => fi.includedProof).length + 2) * 64 + (orderedEvals.length + 1)* 32 %>)) {
+                    mstore(0, 0)
+                    return(0,0x20)
+                }
+                
+<% for(let i = 0; i < orderedEvals.length; ++i) { -%>
+                checkField(mload(add(pProof, pEval_<%- orderedEvals[i] %>)))
+<% } -%>
+            }
+
+            function computePowersXi(pProof,pMem) {
+                let initValue := 1
+<% let wCounter = 0 -%>
+<% for (let i = 1; i <= vk.powerW; ++i) { -%>
+                initValue := mulmod(initValue, mload(add(pProof, pXiSeed)), q)
+<%      while(fiDegrees[wCounter] && fiDegrees[wCounter].wPower === i) { -%>
+                mstore(add(pMem, pXiSeed_w<%- fiDegrees[wCounter++].degree %>), initValue)
+<%      } -%>
+<%      if(!fiDegrees[wCounter]) break; -%>
+<% } -%>
+            }
+
+            function computeRoots(pMem) {
+<%  rcounter = 0; -%>
+                let initValue
+<%  for(let i = 0; i < f.length; ++i) { -%>
+<%          for(let k = 0; k < f[i].openingPoints.length; ++k) { -%>
+<%              let val = f[i].openingPoints[k] === 0 ? `mload(add(pMem, pXiSeed_w${f[i].pols.length}))` : `mulmod(w${f[i].pols.length}_${f[i].openingPoints[k]}d${f[i].pols.length}, mload(add(pMem, pXiSeed_w${f[i].pols.length})),q)` -%>
+                initValue := <%- val %>
+                mstore( add(pMem, pH<%- rcounter%>w<%- f[i].pols.length %>_<%- k*f[i].pols.length %>),  initValue)
+<%              for(let l = 1; l < f[i].pols.length; ++l) { -%>
+                mstore( add(pMem, pH<%- rcounter%>w<%- f[i].pols.length %>_<%- l + k*f[i].pols.length %>), mulmod(initValue, w<%- f[i].pols.length %>_<%- l %>, q))
+<%              } -%>
+
+<%          } -%>
+<%          rcounter++ -%>
+<%      } -%>
+            }
+
+            function computeChallenges(pProof, pMem) {
+                let mIn := mload(0x40)
+<%  for(let i = 0; i < orderedEvals.length - 1; ++i) { -%>
+                mstore(add(mIn,<%- i * 32 %>), mload(add(pProof, pEval_<%- orderedEvals[i] %>)))
+<%  } -%>
+                mstore(add(mIn, <%- (orderedEvals.length - 1) * 32 %>), mload(add(pProof, pXiSeed)))
+
+                mstore( add(pMem, pAlpha), mod(keccak256(mIn, <%- 32 + (orderedEvals.length - 1) * 32 %>), q))
+
+                mstore(mIn, mload(add(pMem, pAlpha)))
+                mstore(add(mIn, 32), mload(add(pProof, pW1)))
+                mstore(add(mIn, 64), mload(add(pProof, add(pW1, 32))))
+
+                // Compute challenge.y
+                mstore( add(pMem, pY), mod(keccak256(mIn, 96), q))
+            }
+
+            // This function computes allows as to compute (X-X1)·(X-X2)·...·(X-Xn) used in Lagrange interpolation
+            function calcLagrangeItem(pMem, i, n, pX, pXi) -> result {
+                let idx := i
+                let max := add(n, 1)
+                result := 1
+                let X := mload(add(pMem, pX))
+                for { let j := 0 } lt(j, n) { j := add(j, 1) }
+                {
+                    idx := mod(add(idx, 1), max)
+
+                    result := mulmod(result, addmod(X, mod(sub(q, mload(add(pMem, add(pXi, mul(idx, 32))))), q), q), q)
+                }
+            }
+
+            // Prepare all the denominators that must be inverted, placed them in consecutive memory addresses
+            function computeInversions(pProof, pMem) {
+                let y := mload(add(pMem, pY))
+                let w
+<% let inversionCounter = 0 -%>
+<% for(let i = 1; i < f.length; ++i) { -%>
+                w := 1
+<%  inversionCounter += 1; -%>
+<% for(let j = 0; j < f[i].pols.length * f[i].openingPoints.length; ++j) { -%>
+                w := mulmod(w, addmod(y, mod(sub(q, mload(add(pMem, pH<%- i %>w<%- f[i].pols.length %>_<%- j %>))), q), q),q)
+<% } -%>
+                mstore(add(pMem, pDenH<%- i %>), w)
+<% } -%>
+
+<% for(let i = 0; i < f.length; ++i) { -%>
+<%  inversionCounter += f[i].pols.length * f[i].openingPoints.length; -%>
+<% for(let j = 0; j < f[i].pols.length * f[i].openingPoints.length; ++j) { -%>
+                mstore(add(pMem, pLiS<%- i %>Inv_<%- j %>), calcLagrangeItem(pMem, <%= j %>, <%- f[i].pols.length * f[i].openingPoints.length - 1 %>, pH<%-i%>w<%-f[i].pols.length %>_<%- j %>, pH<%-i%>w<%-f[i].pols.length %>_0))
+<% } -%>
+<% } -%>
+                
+                // Execute Montgomery batched inversions of the previous prepared values
+                inverseArray(pProof, add(pMem, pDenH1), <%- inversionCounter %>)
+            }
+
+<%  for(let i = 0; i < f.length; ++i) { -%>
+<%      if(f[i].openingPoints.length === 1) { -%>
+            function computeR<%- i %>(pProof, pMem) {
+                let res 
+                for { let i := 0 } lt(i, <%- f[i].pols.length %>) { i := add(i, 1) }
+                {
+                    let root := mload(add(pMem, add(pH<%- i %>w<%- f[i].pols.length %>_0, mul(i, 32))))
+                    let acc := 0
+                    let accRoot := 1
+<%  for(let j = 0; j < f[i].pols.length; ++j) { -%> 
+                    acc := addmod(acc, mulmod(mload(add(pProof, pEval_<%- f[i].pols[j] %>)), accRoot, q), q)
+                    accRoot := mulmod(accRoot, root, q)
+<% } -%>
+
+                    let lagrange := calcLagrangeItem(pMem, i, <%- f[i].pols.length - 1%>, pY, pH<%- i %>w<%- f[i].pols.length %>_0)
+                    lagrange := mulmod(lagrange, mload(add(pMem, add(pLiS<%- i %>Inv_0, mul(i, 32)))), q)
+
+                    res := addmod(res, mulmod(acc, lagrange, q), q)
+                    
+                }
+                mstore(add(pMem,pR<%-i %>), res)
+            }
+
+<%      } else { -%>
+            function computeR<%- i %>(pProof, pMem) {
+                let res 
+                for { let i := 0 } lt(i, <%- f[i].pols.length %>) { i := add(i, 1) }
+                {
+                    let root
+                    let acc
+                    let accRoot
+                    let lagrange
+
+<%  for(let k = 0; k < f[i].openingPoints.length; ++k) { -%>
+                        root := mload(add(pMem, add(pH<%- i %>w<%- f[i].pols.length %>_<%- k*f[i].pols.length %>, mul(i, 32))))
+                        acc := 0
+                        accRoot := 1
+<%  for(let j = 0; j < f[i].pols.length; ++j) { -%> 
+<%  const wPower = f[i].openingPoints[k] === 0 ? '' : f[i].openingPoints[k] === 1 ? 'w' : `w${f[i].openingPoints[k]}` -%>
+                        acc := addmod(acc, mulmod(mload(add(pProof, pEval_<%- f[i].pols[j] + wPower %>)), accRoot, q), q)
+                        accRoot := mulmod(accRoot, root, q)
+<% } -%>
+
+<% const addition = k === 0 ? "i" : `add(i, ${k*f[i].pols.length})`; -%>
+                        lagrange := calcLagrangeItem(pMem, <%- addition %>, <%- f[i].pols.length * f[i].openingPoints.length - 1 %>, pY, pH<%- i %>w<%- f[i].pols.length %>_0)
+                        lagrange := mulmod(lagrange, mload(add(pMem, add(pLiS<%- i %>Inv_<%- k*f[i].pols.length %>, mul(i, 32)))), q)
+
+                        res := addmod(res, mulmod(acc, lagrange, q), q)
+
+<% } -%>    
+                }   
+
+                mstore(add(pMem,pR<%-i %>), res)
+            }
+<%      } -%>
+<%  } -%>
+            
+            // G1 function to accumulate a G1 value to an address
+            function g1_acc(pR, pP) {
+                let mIn := mload(0x40)
+                mstore(mIn, mload(pR))
+                mstore(add(mIn,32), mload(add(pR, 32)))
+                mstore(add(mIn,64), mload(pP))
+                mstore(add(mIn,96), mload(add(pP, 32)))
+
+                let success := staticcall(sub(gas(), 2000), 6, mIn, 128, pR, 64)
+
+                if iszero(success) {
+                    mstore(0, 0)
+                    return(0,0x20)
+                }
+            }
+
+            // G1 function to multiply a G1 value to value in an address
+            function g1_mulAcc(pR, px, py, s) {
+                if eq(or(iszero(px), iszero(py)), 0) {
+                    let success
+                    let mIn := mload(0x40)
+                    mstore(mIn, px)
+                    mstore(add(mIn,32), py)
+                    mstore(add(mIn,64), s)
+
+                    success := staticcall(sub(gas(), 2000), 7, mIn, 96, mIn, 64)
+
+                    if iszero(success) {
+                        mstore(0, 0)
+                        return(0,0x20)
+                    }
+
+                    mstore(add(mIn,64), mload(pR))
+                    mstore(add(mIn,96), mload(add(pR, 32)))
+
+                    success := staticcall(sub(gas(), 2000), 6, mIn, 128, pR, 64)
+
+                    if iszero(success) {
+                        mstore(0, 0)
+                        return(0,0x20)
+                    }
+                }
+            }
+
+            // G1 function to multiply a G1 value(x,y) to value in an address
+            function g1_mulAccC(pR, x, y, s) {
+                let success
+                let mIn := mload(0x40)
+                mstore(mIn, x)
+                mstore(add(mIn,32), y)
+                mstore(add(mIn,64), s)
+
+                success := staticcall(sub(gas(), 2000), 7, mIn, 96, mIn, 64)
+
+                if iszero(success) {
+                    mstore(0, 0)
+                    return(0,0x20)
+                }
+
+                mstore(add(mIn,64), mload(pR))
+                mstore(add(mIn,96), mload(add(pR, 32)))
+
+                success := staticcall(sub(gas(), 2000), 6, mIn, 128, pR, 64)
+
+                if iszero(success) {
+                    mstore(0, 0)
+                    return(0,0x20)
+                }
+            }
+
+            function computeFEJ(pProof, pMem) {
+                // Prepare shared numerator between F, E and J to reuse it
+                let y := mload(add(pMem, pY))
+                let numerator := 1
+<% for(let i = 0; i < f[0].pols.length * f[0].openingPoints.length; ++i) { -%>
+                numerator := mulmod(numerator, addmod(y, mod(sub(q, mload(add(pMem, pH0w<%- f[0].pols.length %>_<%- i %>))), q), q), q)
+<% } -%>
+                
+                // Prepare shared quotient between F and E to reuse it
+                let alpha := mload(add(pMem, pAlpha))
+                let accAlpha := 1
+<% for(let i = 1; i < f.length; ++i) { -%>
+                accAlpha := mulmod(accAlpha, alpha, q)
+                mstore(add(pMem, pQuotient<%- i %>), mulmod(accAlpha, mulmod(numerator, mload(add(pMem, pDenH<%- i %>)), q), q))
+<% } -%>
+
+                
+                // Compute full batched polynomial commitment [F]_1
+<%  if(f[0].includedProof) { -%>
+                mstore(add(pMem, pF), mload(add(pProof, pf0)))
+                mstore(add(pMem, add(pF, 32)), mload(add(pProof, add(pf0, 32))))
+<% } else { -%>
+                mstore(add(pMem, pF), f0x)
+                mstore(add(pMem, add(pF, 32)), f0y)
+<% } -%>
+<% for(let i = 1; i < f.length; ++i) { -%>
+<%  if(f[i].includedProof) { -%>
+                g1_mulAcc(add(pMem, pF), mload(add(pProof, pf<%- i %>)), mload(add(pProof, add(pf<%- i %>, 32))), mload(add(pMem,pQuotient<%- i %>)))
+<% } else { -%>
+                g1_mulAcc(add(pMem, pF), f<%- i %>x, f<%- i %>y, mload(add(pMem,pQuotient<%- i %>)))
+<% } -%>
+<% } -%>
+
+                // Compute group-encoded batch evaluation [E]_1
+
+                let accR := mload(add(pMem, pR0))
+<% for(let i = 1; i < f.length; ++i) { -%>
+                accR := addmod(accR, mulmod(mload(add(pMem,pQuotient<%- i %>)), mload(add(pMem, pR<%- i %>)),q) ,q)
+<% } -%>
+                g1_mulAccC(add(pMem, pE), G1x, G1y, accR)
+
+                // Compute the full difference [J]_1
+                g1_mulAcc(add(pMem, pJ), mload(add(pProof, pW1)), mload(add(pProof, add(pW1, 32))), numerator)
+            }
+ 
+            // Validate all evaluations with a pairing checking that e([F]_1 - [E]_1 - [J]_1 + y[W2]_1, [1]_2) == e([W']_1, [x]_2)
+            function checkPairing(pProof, pMem) -> isOk {
+                let mIn := mload(0x40)
+
+                // First pairing value
+                // Compute -E
+                mstore(add(add(pMem, pE), 32), mod(sub(qf, mload(add(add(pMem, pE), 32))), qf))
+                // Compute -J
+                mstore(add(add(pMem, pJ), 32), mod(sub(qf, mload(add(add(pMem, pJ), 32))), qf))
+                // F = F - E - J + y·W2
+                g1_acc(add(pMem, pF), add(pMem, pE))
+                g1_acc(add(pMem, pF), add(pMem, pJ))
+                g1_mulAcc(add(pMem, pF), mload(add(pProof, pW2)), mload(add(pProof, add(pW2, 32))), mload(add(pMem, pY)))
+
+                mstore(mIn, mload(add(pMem, pF)))
+                mstore(add(mIn, 32), mload(add(add(pMem, pF), 32)))
+
+                // Second pairing value
+                mstore(add(mIn, 64), G2x2)
+                mstore(add(mIn, 96), G2x1)
+                mstore(add(mIn, 128), G2y2)
+                mstore(add(mIn, 160), G2y1)
+
+                // Third pairing value
+                // Compute -W2
+                mstore(add(mIn, 192), mload(add(pProof, pW2)))
+                let s := mload(add(add(pProof, pW2), 32))
+                s := mod(sub(qf, s), qf)
+                mstore(add(mIn, 224), s)
+
+                // Fourth pairing value
+                mstore(add(mIn, 256), X2x2)
+                mstore(add(mIn, 288), X2x1)
+                mstore(add(mIn, 320), X2y2)
+                mstore(add(mIn, 352), X2y1)
+
+                let success := staticcall(sub(gas(), 2000), 8, mIn, 384, mIn, 0x20)
+
+                isOk := and(success, mload(mIn))
+            }
+
+            let pMem := mload(0x40)
+            mstore(0x40, add(pMem, lastMem))
+
+            // Validate that all evaluations ∈ F
+            checkInput(proof)
+
+            // Compute powers of xi seed
+            computePowersXi(proof,pMem)
+
+            // Compute the challenges alpha and y ∈ F
+            computeChallenges(proof, pMem)
+
+            
+            // Compute roots
+            computeRoots(pMem)
+
+            // To divide prime fields the Extended Euclidean Algorithm for computing modular inverses is needed.
+            // The Montgomery batch inversion algorithm allow us to compute n inverses reducing to a single one inversion.
+            // More info: https://vitalik.ca/general/2018/07/21/starks_part_3.html
+            // To avoid this single inverse computation on-chain, it has been computed in proving time and send it to the verifier.
+            // Therefore, the verifier:
+            //      1) Prepare all the denominators to inverse
+            //      2) Check the inverse sent by the prover it is what it should be
+            //      3) Compute the others inverses using the Montgomery Batched Algorithm using the inverse sent to avoid the inversion operation it does.
+            computeInversions(proof, pMem)
+
+<% for(let i = 0; i < f.length; ++i) { -%>
+            computeR<%- i %>(proof, pMem)
+<% } -%>
+
+            // Compute full batched polynomial commitment [F]_1, group-encoded batch evaluation [E]_1 and the full difference [J]_1
+            computeFEJ(proof, pMem)
+
+            // Validate all evaluations
+            let isValid := checkPairing(proof, pMem)
+
+            mstore(0x40, sub(pMem, lastMem))
+            mstore(0, isValid)
+            return(0,0x20)
+
+        }
+    }
+}
