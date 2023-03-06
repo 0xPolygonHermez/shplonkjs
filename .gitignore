@@ -3,5 +3,5 @@ node_modules
 dist
 package-lock.json
 tmp/*
-shplonk_calldata.txt
-shplonk_verifier.sol
+*.txt
+*.sol

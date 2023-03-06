@@ -28,7 +28,7 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
 const {unstringifyBigInts, stringifyBigInts} = utils;
 
-export default async function exportSolidityVerifier(vk, xiSeed, curve, logger) {
+export default async function exportSolidityVerifier(fileName, vk, xiSeed, curve, logger) {
     if (logger) logger.info("FFLONK EXPORT SOLIDITY VERIFIER STARTED");
 
     const f = vk.f;
@@ -70,7 +70,7 @@ export default async function exportSolidityVerifier(vk, xiSeed, curve, logger) 
     const template = await fs.promises.readFile(path.resolve(__dirname, "verifier_sh_plonk.sol.ejs"), "utf-8");
 
     const verifierCode = ejs.render(template, obj); 
-    fs.writeFileSync("shplonk_verifier.sol", verifierCode, "utf-8");
+    fs.writeFileSync(`${fileName}.sol`, verifierCode, "utf-8");
 
     function toVkey(val) {
         const str = curve.Fr.toObject(val);

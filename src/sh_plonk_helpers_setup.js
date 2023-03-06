@@ -4,12 +4,19 @@ import * as utils from "./powersoftau_utils.js";
 
 export function getF(config) {
     let f = [];
-    if(config.stages !== config.extraMuls.length) throw new Error("");
-    for(let i = 0; i < config.stages; ++i) {
+    let index = 0;
+
+    const nStages = Math.max(...config.polDefs.flat().map(p => p.stage)) + 1;
+    if(nStages !== config.extraMuls.length) throw new Error("");
+    for(let i = 0; i < nStages; ++i) {
         let openingPoints = [];
         let polsStage = [];
         for(let j = 0; j < config.polDefs.length; ++j) {
             const polynomials = config.polDefs[j].filter(p => p.stage === i);
+            
+            const names = polynomials.map(p => p.name);
+            if((new Set(names)).size !== names.length) throw new Error("");
+            
             for(let k = 0; k < polynomials.length; ++k) {
                 if(!polsStage.map(p => p.name).includes(polynomials[k].name)){
                     polsStage.push(polynomials[k]);
@@ -39,8 +46,8 @@ export function getF(config) {
 
             const degrees = p.map((pi, index) => pi.degree*length + index);
             const fiDegree = Math.max(...degrees);
-            const includedProof = i === 0 ? false : true;
-            const fi = {index: f.length, pols: p.map(pi => pi.name), openingPoints, degree: fiDegree, includedProof};
+            const polsNames = p.map(pi => pi.name);
+            const fi = {index: index++, pols: polsNames, openingPoints, degree: fiDegree, stages: [{stage: i, pols: polsNames}]};
         
             f.push(fi);
         }   
@@ -93,25 +100,9 @@ export async function getPowersOfTau(f, ptauFilename, power, curve, logger) {
     
     const X_2 = await fdPTau.read(sG2, pTauSections[3][0].p + sG2);
 
+    await fdPTau.close();
+
     return {PTau, X_2};
-}
-
-export function computeRootWi(n, nthRoot, power, curve, logger) {
-    // Hardcorded 3th-root of Fr.w[28]
-
-    let x = curve.Fr.e(467799165886069610036046866799264026481344299079011762026774533774345988080n);
-
-    let r = curve.Fr.one;
-    for(let i = 0; i < n; ++i) {
-        r = curve.Fr.mul(r, x);
-    }
-    
-    let root = curve.Fr.one;
-    for(let i = 0; i < nthRoot; ++i) {
-        root = curve.Fr.mul(root, curve.Fr.e(467799165886069610036046866799264026481344299079011762026774533774345988080n));
-
-    }
-    return curve.Fr.exp(root, 2 ** (28 - power));
 }
 
 export function computeWi(n, curve, logger) {
@@ -145,4 +136,22 @@ export function computeWi(n, curve, logger) {
         if(Fr.eq(gen, nthRoot)) return true;
         return false;
     }  
+}
+
+export function computeRootWi(n, nthRoot, power, curve, logger) {
+    // Hardcorded 3th-root of Fr.w[28]
+
+    let x = curve.Fr.e(467799165886069610036046866799264026481344299079011762026774533774345988080n);
+
+    let r = curve.Fr.one;
+    for(let i = 0; i < n; ++i) {
+        r = curve.Fr.mul(r, x);
+    }
+    
+    let root = curve.Fr.one;
+    for(let i = 0; i < nthRoot; ++i) {
+        root = curve.Fr.mul(root, curve.Fr.e(467799165886069610036046866799264026481344299079011762026774533774345988080n));
+
+    }
+    return curve.Fr.exp(root, 2 ** (28 - power));
 }

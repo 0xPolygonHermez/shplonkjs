@@ -42,7 +42,7 @@ contract ShPlonkVerifier {
     uint256 constant qf   = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
 
 <%  for(let i = 0; i < f.length; ++i) { -%>
-<%      if(!f[i].includedProof) {  -%>
+<%      if(f[i].stages.length === 1 && f[i].stages[0].stage === 0) {  -%>
     uint256 constant f<%- f[i].index %>x = <%= vk[`f${f[i].index}`][0] %>;
     uint256 constant f<%- f[i].index %>y = <%= vk[`f${f[i].index}`][1] %>;
 <%      } -%>
@@ -66,7 +66,7 @@ contract ShPlonkVerifier {
     // Polynomial commitments fi
 <%  let count = 160; -%>
 <%  for(let i = 0; i < f.length; ++i) { -%>
-<%      if(f[i].includedProof) { -%>
+<%      if(f[i].stages.length !== 1 || f[i].stages[0].stage !== 0) { -%>
     uint16 constant pf<%- f[i].index %> = <%- count %>;
 <%      count += 64 -%>
 <%      } -%>
@@ -192,7 +192,7 @@ contract ShPlonkVerifier {
 
             // Validate all the evaluations sent by the prover ∈ F
             function checkInput(pProof) {
-                if iszero(eq(mload(pProof), <%- (f.filter(fi => fi.includedProof).length + 2) * 64 + (orderedEvals.length + 1)* 32 %>)) {
+                if iszero(eq(mload(pProof), <%- (f.filter(fi => fi.stages.length !== 1 || fi.stages[0].stage !== 0).length + 2) * 64 + (orderedEvals.length + 1)* 32 %>)) {
                     mstore(0, 0)
                     return(0,0x20)
                 }
@@ -432,7 +432,7 @@ contract ShPlonkVerifier {
 
                 
                 // Compute full batched polynomial commitment [F]_1
-<%  if(f[0].includedProof) { -%>
+<%  if(f[0].stages.length !== 1 || f[0].stages[0].stage !== 0) { -%>
                 mstore(add(pMem, pF), mload(add(pProof, pf0)))
                 mstore(add(pMem, add(pF, 32)), mload(add(pProof, add(pf0, 32))))
 <% } else { -%>
@@ -440,7 +440,7 @@ contract ShPlonkVerifier {
                 mstore(add(pMem, add(pF, 32)), f0y)
 <% } -%>
 <% for(let i = 1; i < f.length; ++i) { -%>
-<%  if(f[i].includedProof) { -%>
+<%  if(f[i].stages.length !== 1 || f[i].stages[0].stage !== 0) { -%>
                 g1_mulAcc(add(pMem, pF), mload(add(pProof, pf<%- i %>)), mload(add(pProof, add(pf<%- i %>, 32))), mload(add(pMem,pQuotient<%- i %>)))
 <% } else { -%>
                 g1_mulAcc(add(pMem, pF), f<%- i %>x, f<%- i %>y, mload(add(pMem,pQuotient<%- i %>)))

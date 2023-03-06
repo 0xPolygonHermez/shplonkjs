@@ -56,15 +56,15 @@ function calculateRootsFi(initialOmega, initialValue, degFi, lcm, xiSeed, curve,
     return S;
 }
 
-export function calculateRoots(f, xiSeed, zkey, curve, logger) {
+export function calculateRoots(zkey, xiSeed, curve, logger) {
 
     const roots = [];
-    for(let i = 0; i < f.length; ++i) {
+    for(let i = 0; i < zkey.f.length; ++i) {
         const rootsFi = [];
-        const nPols = f[i].pols.length;
+        const nPols = zkey.f[i].pols.length;
         const initialOmega = zkey[`w${nPols}`];
-        for(let k = 0; k < f[i].openingPoints.length; ++k) {
-            const initValue = f[i].openingPoints[k] === 0 ? curve.Fr.one : zkey[`w${nPols}_${f[i].openingPoints[k]}d${nPols}`];
+        for(let k = 0; k < zkey.f[i].openingPoints.length; ++k) {
+            const initValue = zkey.f[i].openingPoints[k] === 0 ? curve.Fr.one : zkey[`w${nPols}_${zkey.f[i].openingPoints[k]}d${nPols}`];
             const rootWi = calculateRootsFi(initialOmega, initValue, nPols, zkey.powerW, xiSeed, curve, logger);
             rootsFi.push(rootWi);    
         }

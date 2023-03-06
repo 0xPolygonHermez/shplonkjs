@@ -18,12 +18,22 @@ async function computeRi(f, roots, curve, logger) {
         throw new Error("r Polynomial is not well calculated");
     }
     
-    return ri;
-
-   
+    return ri;  
 }
 
-export function calculateEvaluations(pk, ctx, f, xiSeed, curve, logger) {
+export async function computeR(f, roots, curve, logger) {
+    const fPols = f.map(fi => fi.pol);
+    const promises = [];
+    for(let i = 0; i < fPols.length; ++i) {
+        if (logger) logger.info("> Computing r polynomial");
+        promises.push(computeRi(fPols[i], roots[i], curve, logger));
+    }
+
+    const r = await Promise.all(promises);
+    return r;
+}
+
+export function calculateEvaluations(pk, ctx, xiSeed, curve, logger) {
     // Calculate the array of opening points
     const openingPoints = []; 
 
@@ -44,12 +54,12 @@ export function calculateEvaluations(pk, ctx, f, xiSeed, curve, logger) {
         
     // Calculate evaluations
     const evaluations = {};
-    for(let i = 0; i < f.length; ++i) {
-        for(let j = 0; j < f[i].openingPoints.length; ++j) {
-            for(let k = 0; k < f[i].pols.length; ++k) {
-                const openingIndex = f[i].openingPoints[j];
+    for(let i = 0; i < pk.f.length; ++i) {
+        for(let j = 0; j < pk.f[i].openingPoints.length; ++j) {
+            for(let k = 0; k < pk.f[i].pols.length; ++k) {
+                const openingIndex = pk.f[i].openingPoints[j];
                 const wPower = openingIndex === 0 ? "" : openingIndex === 1 ? "w" : `w${openingIndex}`;
-                const polName = f[i].pols[k];
+                const polName = pk.f[i].pols[k];
 
                 // The polynomial must be committed previously in order to be opened
                 if(!ctx[polName]) throw new Error(`Polynomial ${polName} is not committed`);
@@ -61,6 +71,46 @@ export function calculateEvaluations(pk, ctx, f, xiSeed, curve, logger) {
     }
 
     return {evaluations, openingPoints};
+}
+
+export function computeW(f, r, roots, challengesAlpha, openingPoints, curve, logger) {
+    if (logger) logger.info("> Computing W polynomial");
+
+    const fPols = f.map(fi => fi.pol);
+
+    let W;
+    let challenge = curve.Fr.one;
+    for(let i = 0; i < fPols.length; i++) {
+        let fi = Polynomial.fromPolynomial(fPols[i], curve, logger); 
+        fi.sub(r[i]);
+        fi.mulScalar(challenge);
+        challenge = curve.Fr.mul(challenge, challengesAlpha);
+    
+        for(let k = 0; k < roots[i].length; k++) {
+            const nRoots = roots[i][k].length;
+            fi.divByZerofier(nRoots, openingPoints[k]);
+        }
+        
+        if(i === 0) {
+            W = fi;
+        } else {
+            W.add(fi);
+        }
+    }
+
+    const nTotalRoots = f.reduce((acc, curr) => acc + curr.pols.length*curr.openingPoints.length,0);
+    let maxDegree = 0;
+    for(let i = 0; i < f.length; ++i) {
+        const fiDegree = f[i].degree + nTotalRoots - f[i].pols.length * f[i].openingPoints.length;
+        if(fiDegree > maxDegree) maxDegree = fiDegree;
+    }
+
+    if(W.degree() > maxDegree - nTotalRoots) {
+        throw new Error("W polynomial is not well calculated");
+    }
+
+
+    return W;
 }
 
 function computeL(F, ZT, f, r, roots, challengesY, challengesAlpha, toInverse, curve, logger) {
@@ -122,7 +172,8 @@ function computeL(F, ZT, f, r, roots, challengesY, challengesAlpha, toInverse, c
     return L;
 }
 
-export function computeZT(roots, curve, logger) {
+
+function computeZT(roots, curve, logger) {
     if (logger) logger.info("> Computing ZT polynomial");
     const sRoots = roots.flat(Infinity);
     return Polynomial.zerofierPolynomial(sRoots, curve);
@@ -137,59 +188,6 @@ function computeZTS2(roots, curve, logger) {
     }
     
     return Polynomial.zerofierPolynomial(sRoots, curve);
-}
-
-export async function computeR(f, roots, curve, logger) {
-    const fPols = f.map(fi => fi.pol);
-    const promises = [];
-    for(let i = 0; i < fPols.length; ++i) {
-        if (logger) logger.info("> Computing r polynomial");
-        promises.push(computeRi(fPols[i], roots[i], curve, logger));
-    }
-
-    const r = await Promise.all(promises);
-    return r;
-}
-
-//Currently, opening points [xi, wxi]
-export function computeW(f, r, roots, challengesAlpha, openingPoints, curve, logger) {
-    if (logger) logger.info("> Computing W polynomial");
-
-    const fPols = f.map(fi => fi.pol);
-
-    let W;
-    let challenge = curve.Fr.one;
-    for(let i = 0; i < fPols.length; i++) {
-        let fi = Polynomial.fromPolynomial(fPols[i], curve, logger); 
-        fi.sub(r[i]);
-        fi.mulScalar(challenge);
-        challenge = curve.Fr.mul(challenge, challengesAlpha);
-    
-        for(let k = 0; k < roots[i].length; k++) {
-            const nRoots = roots[i][k].length;
-            fi.divByZerofier(nRoots, openingPoints[k]);
-        }
-        
-        if(i === 0) {
-            W = fi;
-        } else {
-            W.add(fi);
-        }
-    }
-
-    const nTotalRoots = f.reduce((acc, curr) => acc + curr.pols.length*curr.openingPoints.length,0);
-    let maxDegree = 0;
-    for(let i = 0; i < f.length; ++i) {
-        const fiDegree = f[i].degree + nTotalRoots - f[i].pols.length * f[i].openingPoints.length;
-        if(fiDegree > maxDegree) maxDegree = fiDegree;
-    }
-
-    if(W.degree() > maxDegree - nTotalRoots) {
-        throw new Error("W polynomial is not well calculated");
-    }
-
-
-    return W;
 }
 
 export function computeWp(f, r, roots, W, challengesY, challengesAlpha, toInverse, curve, logger) {
@@ -239,8 +237,6 @@ function computeLi(toInverse, roots, curve, logger) {
 }
 
 export function getMontgomeryBatchedInverse(roots, toInverse, curve, logger) {
-    //   · denominator needed in step 8 and 9 of the verifier to multiply by 1/Z_H(xi)
-
     //   · denominator needed in step 10 and 11 of the verifier
     //     toInverse.denH1 & toInverse.denH2  -> Computed in round5, computeL()
 

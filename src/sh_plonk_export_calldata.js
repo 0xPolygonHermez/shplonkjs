@@ -5,7 +5,7 @@ function i2hex(i) {
     return ("0" + i.toString(16)).slice(-2);
 }
 
-export default async function exportCalldata(zkey, xiSeed, committedPols, evaluations, curve, logger) {
+export default async function exportCalldata(fileName, zkey, xiSeed, committedPols, evaluations, curve, logger) {
 
     const G1 = curve.G1;
     const Fr = curve.Fr;
@@ -13,18 +13,23 @@ export default async function exportCalldata(zkey, xiSeed, committedPols, evalua
     const f = zkey.f;
 
     for(let i = 0; i < f.length; ++i) {
-        f[i].commit = committedPols[`f${f[i].index}`];
+        for(let j = 0; j < f[i].stages.length; ++j) {
+            const index = `${f[i].index}_${f[i].stages[j].stage}`;
+            if(!committedPols[`f${index}`]) throw new Error(`f${index} not found`); 
+            if(!committedPols[`f${index}`].commit) throw new Error(`f${index} commit is missing`);
+            f[i].commit = committedPols[`f${index}`].commit;
+        }
     }
 
-    const fCommitted = f.filter(fi => fi.includedProof).sort((a, b) => a.index >= b.index ? 1 : -1);
+    const fCommitted = f.filter(fi => fi.stages.length !== 1 || fi.stages[0].stage !== 0).sort((a, b) => a.index >= b.index ? 1 : -1);
 
     const nG1 = 2 + fCommitted.length;
     const nFr = 1 + Object.keys(evaluations).length;
 
     const proofBuff = new Uint8Array(G1.F.n8 * 2 * nG1 + Fr.n8 * nFr);
 
-    G1.toRprUncompressed(proofBuff, 0, G1.e(committedPols.W1));
-    G1.toRprUncompressed(proofBuff, G1.F.n8 * 2, G1.e(committedPols.W2));
+    G1.toRprUncompressed(proofBuff, 0, G1.e(committedPols.W1.commit));
+    G1.toRprUncompressed(proofBuff, G1.F.n8 * 2, G1.e(committedPols.W2.commit));
 
     
     for(let i = 0; i < fCommitted.length; ++i) {
@@ -43,7 +48,7 @@ export default async function exportCalldata(zkey, xiSeed, committedPols, evalua
 
     const proofHex = `0x${Array.from(proofBuff).map(i2hex).join("")}`;
     
-    fs.writeFileSync("shplonk_calldata.txt", proofHex, "utf-8");
+    fs.writeFileSync(`${fileName}.txt`, proofHex, "utf-8");
 
     return;
 }
