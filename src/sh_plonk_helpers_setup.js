@@ -2,7 +2,7 @@ import { Scalar, BigBuffer } from "ffjavascript";
 import { readBinFile } from "@iden3/binfileutils";
 import * as utils from "./powersoftau_utils.js";
 
-export function getF(config) {
+export function getFByStage(config) {
     let f = [];
     let index = 0;
 
@@ -51,6 +51,56 @@ export function getF(config) {
         
             f.push(fi);
         }   
+    }
+    
+    return f;
+}
+
+export function getFByOpeningPoints(config) {
+    let f = [];
+    let index = 0;
+
+    const nOpeningPoints = config.polDefs.length;
+    if(nOpeningPoints !== config.extraMuls.length) throw new Error("");
+
+    for(let i = 0; i < nOpeningPoints; ++i) {  
+        let polynomials = config.polDefs[i];      
+
+        if((new Set(polynomials.map(p => p.name))).size !== polynomials.map(p => p.name).length) throw new Error("");
+
+        const nPolsOpeningPoint = polynomials.length;
+
+        polynomials = polynomials.sort((a,b) => a.degree <= b.degree ? 1 : -1);
+
+        const nPols = 1 + config.extraMuls[i];
+
+        if(nPols > nPolsOpeningPoint) throw new Error("");
+
+        let count = 0;
+
+        // Define the composed polinomial f with all the polinomials provided
+        for(let k = 0; k < nPols; ++k) {
+            const length = (nPols - k) <= nPolsOpeningPoint % nPols ? Math.ceil(nPolsOpeningPoint / nPols) : Math.floor(nPolsOpeningPoint / nPols);
+            const p = polynomials.slice(count, count + length);
+            count += length;
+
+            const degrees = p.map((pi, index) => pi.degree*length + index);
+            const fiDegree = Math.max(...degrees);
+            const polsNames = p.map(pi => pi.name);
+            const stages = {};
+            for(let l = 0; l < p.length; ++l) {
+                if(!stages[p[l].stage]) stages[p[l].stage] = [];
+                stages[p[l].stage].push(p[l].name);
+            }
+
+            const stagesArray = [];
+            for(let l = 0; l < Object.keys(stages).length; ++l){
+                const stage = Number(Object.keys(stages)[l]);
+                stagesArray.push({stage: stage, pols: stages[stage] })
+            }
+            const fi = {index: index++, pols: polsNames, openingPoints: [i], degree: fiDegree, stages: stagesArray};
+            f.push(fi);
+        }
     }
     
     return f;

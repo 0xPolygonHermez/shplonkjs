@@ -37,7 +37,7 @@ describe("Shplonk test suite", function () {
             "stages": 1,
         };
 
-        const {PTau} = await setup(config, curve, ptauFilename);
+        const {PTau} = await setup(config, true, curve, ptauFilename);
 
         const sFr = curve.Fr.n8;    
 

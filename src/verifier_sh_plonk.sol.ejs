@@ -297,7 +297,8 @@ contract ShPlonkVerifier {
                     let acc := 0
                     let accRoot := 1
 <%  for(let j = 0; j < f[i].pols.length; ++j) { -%> 
-                    acc := addmod(acc, mulmod(mload(add(pProof, pEval_<%- f[i].pols[j] %>)), accRoot, q), q)
+<%  const wPower = f[i].openingPoints[0] === 0 ? '' : f[i].openingPoints[0] === 1 ? 'w' : `w${f[i].openingPoints[0]}` -%>
+                    acc := addmod(acc, mulmod(mload(add(pProof, pEval_<%- f[i].pols[j] + wPower %>)), accRoot, q), q)
                     accRoot := mulmod(accRoot, root, q)
 <% } -%>
 

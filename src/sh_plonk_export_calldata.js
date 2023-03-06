@@ -1,4 +1,4 @@
-import { getOrderedEvals } from "./sh_plonk_helpers.js";
+import { getOrderedEvals, sumCommits } from "./sh_plonk_helpers.js";
 import fs from "fs";
 
 function i2hex(i) {
@@ -13,12 +13,14 @@ export default async function exportCalldata(fileName, zkey, xiSeed, committedPo
     const f = zkey.f;
 
     for(let i = 0; i < f.length; ++i) {
+        const commits = [];
         for(let j = 0; j < f[i].stages.length; ++j) {
             const index = `${f[i].index}_${f[i].stages[j].stage}`;
             if(!committedPols[`f${index}`]) throw new Error(`f${index} not found`); 
             if(!committedPols[`f${index}`].commit) throw new Error(`f${index} commit is missing`);
-            f[i].commit = committedPols[`f${index}`].commit;
+            commits.push(committedPols[`f${index}`].commit);
         }
+        f[i].commit = sumCommits(commits, curve, logger);
     }
 
     const fCommitted = f.filter(fi => fi.stages.length !== 1 || fi.stages[0].stage !== 0).sort((a, b) => a.index >= b.index ? 1 : -1);
@@ -48,7 +50,7 @@ export default async function exportCalldata(fileName, zkey, xiSeed, committedPo
 
     const proofHex = `0x${Array.from(proofBuff).map(i2hex).join("")}`;
     
-    fs.writeFileSync(`${fileName}.txt`, proofHex, "utf-8");
+    fs.writeFileSync(fileName, proofHex, "utf-8");
 
     return;
 }

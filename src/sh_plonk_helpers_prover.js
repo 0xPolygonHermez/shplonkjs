@@ -86,9 +86,9 @@ export function computeW(f, r, roots, challengesAlpha, openingPoints, curve, log
         fi.mulScalar(challenge);
         challenge = curve.Fr.mul(challenge, challengesAlpha);
     
-        for(let k = 0; k < roots[i].length; k++) {
+        for(let k = 0; k < f[i].openingPoints.length; k++) {
             const nRoots = roots[i][k].length;
-            fi.divByZerofier(nRoots, openingPoints[k]);
+            fi.divByZerofier(nRoots, openingPoints[f[i].openingPoints[k]]);
         }
         
         if(i === 0) {

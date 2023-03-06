@@ -70,7 +70,7 @@ export default async function exportSolidityVerifier(fileName, vk, xiSeed, curve
     const template = await fs.promises.readFile(path.resolve(__dirname, "verifier_sh_plonk.sol.ejs"), "utf-8");
 
     const verifierCode = ejs.render(template, obj); 
-    fs.writeFileSync(`${fileName}.sol`, verifierCode, "utf-8");
+    fs.writeFileSync(fileName, verifierCode, "utf-8");
 
     function toVkey(val) {
         const str = curve.Fr.toObject(val);

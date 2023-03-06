@@ -3,19 +3,18 @@ import { calculateEvaluations, computeR, computeW, computeWp, getMontgomeryBatch
 import { calculateQuotients, computeE, computeF, computeJ, computeR as computeRVerifier, isValidPairing } from "./sh_plonk_helpers_verifier.js";
 import { CPolynomial } from "./polynomial/cpolynomial.js";
 import { lcm } from "./utils.js";
-import { readBinFile } from "@iden3/binfileutils";
-import * as utils from "./powersoftau_utils.js";
-import { BigBuffer } from "ffjavascript";
-import { computeRootWi, computeWi, getF, getPowersOfTau } from "./sh_plonk_helpers_setup.js";
+import { computeRootWi, computeWi, getFByStage, getFByOpeningPoints, getPowersOfTau } from "./sh_plonk_helpers_setup.js";
+import { utils } from "ffjavascript";
 
 
 /*
     
 */
-export async function setup(config, curve, ptauFilename, logger) {
+export async function setup(config, byStage, curve, ptauFilename, logger) {
     
     // Given a config, calculate the fi composed polynomials that will be used in the protocol
-    const f = getF(config);
+    const f = byStage ? getFByStage(config) : getFByOpeningPoints(config);
+
 
     // Get the definition of all the different generators (order and opening points) for each of the fi
     const wPowers = {};
@@ -83,7 +82,8 @@ export async function commit(stage, pk, ctx, PTau, curve, logger) {
         const fPol = new CPolynomial(fPolsToCommit[i].pols.length, curve, logger);
         for(let j = 0; j < cPols.length; ++j) {
             if(!ctx[cPols[j]]) throw new Error(`Polynomial ${cPols[j]} is not provided`);
-            fPol.addPolynomial(j, ctx[cPols[j]]);
+            const pos = fPolsToCommit[i].pols.indexOf(cPols[j]);
+            fPol.addPolynomial(pos, ctx[cPols[j]]);
         }
         // The index is composed by the ith f polynomial and the stage. It is done this way because, if polynomials corresponding
         // to fi are provided in different stages, this pols and commits will need to be added together when opening and verifying
