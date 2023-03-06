@@ -29,6 +29,18 @@ export function computeChallengeY(W, challengeAlpha, curve, logger) {
     return challengesY;
 }
 
+export function computeChallengeXiSeed(f, curve, logger) {
+    const transcript = new Keccak256Transcript(curve);
+
+    for(let i = 0; i < f.length; ++i) {
+        transcript.addPolCommitment(f[i].commit);
+    }
+
+    const challengesXiSeed = transcript.getChallenge();
+    if (logger) logger.info("> challenges xiSeed: " + curve.Fr.toString(challengesXiSeed));
+
+    return challengesXiSeed;
+}
 
 
 

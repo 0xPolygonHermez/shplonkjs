@@ -5,7 +5,7 @@ function i2hex(i) {
     return ("0" + i.toString(16)).slice(-2);
 }
 
-export default async function exportCalldata(fileName, zkey, xiSeed, committedPols, evaluations, curve, logger) {
+export default async function exportCalldata(fileName, zkey, committedPols, evaluations, curve, logger) {
 
     const G1 = curve.G1;
     const Fr = curve.Fr;
@@ -26,7 +26,7 @@ export default async function exportCalldata(fileName, zkey, xiSeed, committedPo
     const fCommitted = f.filter(fi => fi.stages.length !== 1 || fi.stages[0].stage !== 0).sort((a, b) => a.index >= b.index ? 1 : -1);
 
     const nG1 = 2 + fCommitted.length;
-    const nFr = 1 + Object.keys(evaluations).length;
+    const nFr = Object.keys(evaluations).length;
 
     const proofBuff = new Uint8Array(G1.F.n8 * 2 * nG1 + Fr.n8 * nFr);
 
@@ -45,7 +45,6 @@ export default async function exportCalldata(fileName, zkey, xiSeed, committedPo
     }
 
     Fr.toRprBE(proofBuff, G1.F.n8 * 2 * nG1 + Fr.n8 * orderedEvals.length, evaluations.inv);
-    Fr.toRprBE(proofBuff, G1.F.n8 * 2 * nG1 + Fr.n8 * (orderedEvals.length + 1), xiSeed);
 
 
     const proofHex = `0x${Array.from(proofBuff).map(i2hex).join("")}`;

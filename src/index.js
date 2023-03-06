@@ -1,11 +1,9 @@
-import { calculateRoots, computeChallengeAlpha, computeChallengeY, getOrderedEvals, sumCommits, sumPolynomials } from "./sh_plonk_helpers.js";
+import { calculateRoots, computeChallengeAlpha, computeChallengeXiSeed, computeChallengeY, getOrderedEvals, sumCommits, sumPolynomials } from "./sh_plonk_helpers.js";
 import { calculateEvaluations, computeR, computeW, computeWp, getMontgomeryBatchedInverse } from "./sh_plonk_helpers_prover.js";
 import { calculateQuotients, computeE, computeF, computeJ, computeR as computeRVerifier, isValidPairing } from "./sh_plonk_helpers_verifier.js";
 import { CPolynomial } from "./polynomial/cpolynomial.js";
 import { lcm } from "./utils.js";
 import { computeRootWi, computeWi, getFByStage, getFByOpeningPoints, getPowersOfTau } from "./sh_plonk_helpers_setup.js";
-import { utils } from "ffjavascript";
-
 
 /*
     
@@ -13,7 +11,7 @@ import { utils } from "ffjavascript";
 export async function setup(config, byStage, curve, ptauFilename, logger) {
     
     // Given a config, calculate the fi composed polynomials that will be used in the protocol
-    const f = byStage ? getFByStage(config) : getFByOpeningPoints(config);
+    const f = byStage ? getFByStage(config, curve) : getFByOpeningPoints(config, curve);
 
 
     // Get the definition of all the different generators (order and opening points) for each of the fi
@@ -111,7 +109,7 @@ export async function commit(stage, pk, ctx, PTau, curve, logger) {
 }
 
 
-export async function open(xiSeed, pk, PTau, ctx, committedPols, curve, logger) {
+export async function open(pk, PTau, ctx, committedPols, curve, logger) {
     // Store all the committed polynomials to its corresponding fi
     // If the composed polynomial was split in several stages, sum the polynomial and the commits to obtain the final fi
     for(let i = 0; i < pk.f.length; ++i) {
@@ -128,6 +126,8 @@ export async function open(xiSeed, pk, PTau, ctx, committedPols, curve, logger) 
         pk.f[i].commit = sumCommits(commits, curve, logger);
         pk.f[i].pol = sumPolynomials(pols, curve, logger); 
     }
+
+    const xiSeed = computeChallengeXiSeed(pk.f, curve);
 
     // Calculate the roots
     const roots = calculateRoots(pk, xiSeed, curve, logger);
@@ -162,10 +162,10 @@ export async function open(xiSeed, pk, PTau, ctx, committedPols, curve, logger) 
     evaluations.inv = getMontgomeryBatchedInverse(roots, toInverse, curve, logger);
 
     // Return W, Wp and the evaluations
-    return [commitW, commitW2, evaluations, openingPoints];
+    return [commitW, commitW2, evaluations, openingPoints, xiSeed];
 }
 
-export async function verifyOpenings(vk, xiSeed, committedPols, evaluations, curve, logger) {
+export async function verifyOpenings(vk, committedPols, evaluations, curve, logger) {
     
     const W = committedPols.W1.commit;
     const Wp = committedPols.W2.commit;
@@ -181,6 +181,8 @@ export async function verifyOpenings(vk, xiSeed, committedPols, evaluations, cur
         vk.f[i].commit = sumCommits(commits, curve, logger);
 
     }
+
+    const xiSeed = computeChallengeXiSeed(vk.f, curve);
 
     // Order the evaluations by usage in the fi. It is important to use this order since it is the one 
     // that the solidity verifier is gonna use

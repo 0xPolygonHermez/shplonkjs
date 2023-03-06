@@ -28,7 +28,7 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
 const {unstringifyBigInts, stringifyBigInts} = utils;
 
-export default async function exportSolidityVerifier(fileName, vk, xiSeed, curve, logger) {
+export default async function exportSolidityVerifier(fileName, vk, curve, logger) {
     if (logger) logger.info("FFLONK EXPORT SOLIDITY VERIFIER STARTED");
 
     const f = vk.f;
@@ -62,7 +62,6 @@ export default async function exportSolidityVerifier(fileName, vk, xiSeed, curve
         orderedEvals: orderedEvals.map(e => e.name),
         ws,
         f: f.sort((a, b) => a.index >= b.index ? 1 : -1), 
-        xiSeed: toVkey(xiSeed),
         fiDegrees: fiDegrees,
     };
     if (logger) logger.info("FFLONK EXPORT SOLIDITY VERIFIER FINISHED");

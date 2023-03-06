@@ -76,15 +76,15 @@ contract ShPlonkVerifier {
     uint16 constant pEval_<%- orderedEvals[i] %> = <%- count %>;
 <% count += 32 -%>
 <%  } -%>
-    uint16 constant pXiSeed = <%- count %>;
 
     // Memory data
     // Challenges
     uint16 constant pY      = 0;
     uint16 constant pAlpha  = 32;
 
-<%  let memC = 64; -%>
     // XiSeeds
+    uint16 constant pXiSeed = 64;
+<%  let memC = 96; -%>
 <%  for (let i = 0; i < fiDegrees.length; ++i) { -%>
     uint16 constant pXiSeed_w<%- fiDegrees[i].degree %> = <%- memC %>;
 <%      memC += 32; -%>
@@ -192,7 +192,7 @@ contract ShPlonkVerifier {
 
             // Validate all the evaluations sent by the prover ∈ F
             function checkInput(pProof) {
-                if iszero(eq(mload(pProof), <%- (f.filter(fi => fi.stages.length !== 1 || fi.stages[0].stage !== 0).length + 2) * 64 + (orderedEvals.length + 1)* 32 %>)) {
+                if iszero(eq(mload(pProof), <%- (f.filter(fi => fi.stages.length !== 1 || fi.stages[0].stage !== 0).length + 2) * 64 + orderedEvals.length * 32 %>)) {
                     mstore(0, 0)
                     return(0,0x20)
                 }
@@ -202,11 +202,11 @@ contract ShPlonkVerifier {
 <% } -%>
             }
 
-            function computePowersXi(pProof,pMem) {
+            function computePowersXi(pMem) {
                 let initValue := 1
 <% let wCounter = 0 -%>
 <% for (let i = 1; i <= vk.powerW; ++i) { -%>
-                initValue := mulmod(initValue, mload(add(pProof, pXiSeed)), q)
+                initValue := mulmod(initValue, mload(add(pMem, pXiSeed)), q)
 <%      while(fiDegrees[wCounter] && fiDegrees[wCounter].wPower === i) { -%>
                 mstore(add(pMem, pXiSeed_w<%- fiDegrees[wCounter++].degree %>), initValue)
 <%      } -%>
@@ -233,10 +233,23 @@ contract ShPlonkVerifier {
 
             function computeChallenges(pProof, pMem) {
                 let mIn := mload(0x40)
+                // Compute xiSeed
+<%  for(let i = 0; i < f.length; ++i) { -%>
+<%  if(f[i].stages.length !== 1 || f[i].stages[0].stage !== 0) { -%>
+                mstore(add(mIn,<%- i * 64 %>), mload(add(pProof, pf<%- f[i].index %>)))
+                mstore(add(mIn,<%- i * 64 + 32 %>), mload(add(pProof, add(pf<%- f[i].index %>, 32))))
+<% } else { -%>
+                mstore(add(mIn,<%- i * 64 %>), f<%- f[i].index %>x)
+                mstore(add(mIn,<%- i * 64 + 32 %>), f<%- f[i].index %>y)
+<%  } -%>
+<%  } -%>
+                mstore(add(pMem, pXiSeed), mod(keccak256(mIn, <%- f.length * 64 %>), q))
+
+                // Compute challenge.alpha
 <%  for(let i = 0; i < orderedEvals.length - 1; ++i) { -%>
                 mstore(add(mIn,<%- i * 32 %>), mload(add(pProof, pEval_<%- orderedEvals[i] %>)))
 <%  } -%>
-                mstore(add(mIn, <%- (orderedEvals.length - 1) * 32 %>), mload(add(pProof, pXiSeed)))
+                mstore(add(mIn, <%- (orderedEvals.length - 1) * 32 %>), mload(add(pMem, pXiSeed)))
 
                 mstore( add(pMem, pAlpha), mod(keccak256(mIn, <%- 32 + (orderedEvals.length - 1) * 32 %>), q))
 
@@ -507,11 +520,11 @@ contract ShPlonkVerifier {
             // Validate that all evaluations ∈ F
             checkInput(proof)
 
-            // Compute powers of xi seed
-            computePowersXi(proof,pMem)
-
             // Compute the challenges alpha and y ∈ F
             computeChallenges(proof, pMem)
+
+            // Compute powers of xi seed
+            computePowersXi(pMem)
 
             
             // Compute roots

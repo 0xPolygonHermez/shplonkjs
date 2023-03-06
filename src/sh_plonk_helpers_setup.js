@@ -2,7 +2,7 @@ import { Scalar, BigBuffer } from "ffjavascript";
 import { readBinFile } from "@iden3/binfileutils";
 import * as utils from "./powersoftau_utils.js";
 
-export function getFByStage(config) {
+export function getFByStage(config, curve) {
     let f = [];
     let index = 0;
 
@@ -13,7 +13,6 @@ export function getFByStage(config) {
         let polsStage = [];
         for(let j = 0; j < config.polDefs.length; ++j) {
             const polynomials = config.polDefs[j].filter(p => p.stage === i);
-            
             const names = polynomials.map(p => p.name);
             if((new Set(names)).size !== names.length) throw new Error("");
             
@@ -41,6 +40,7 @@ export function getFByStage(config) {
         // Define the composed polinomial f with all the polinomials provided
         for(let k = 0; k < nPols; ++k) {
             const length = (nPols - k) <= nPolsStage % nPols ? Math.ceil(nPolsStage / nPols) : Math.floor(nPolsStage / nPols);
+            if(Scalar.mod(Scalar.sub(curve.Fr.p, 1), Scalar.e(length)) !== 0n) throw new Error("");
             const p = polsStage.slice(count, count + length);
             count += length;
 
@@ -56,7 +56,7 @@ export function getFByStage(config) {
     return f;
 }
 
-export function getFByOpeningPoints(config) {
+export function getFByOpeningPoints(config, curve) {
     let f = [];
     let index = 0;
 
@@ -81,6 +81,7 @@ export function getFByOpeningPoints(config) {
         // Define the composed polinomial f with all the polinomials provided
         for(let k = 0; k < nPols; ++k) {
             const length = (nPols - k) <= nPolsOpeningPoint % nPols ? Math.ceil(nPolsOpeningPoint / nPols) : Math.floor(nPolsOpeningPoint / nPols);
+            if(Scalar.mod(Scalar.sub(curve.Fr.p, 1), Scalar.e(length)) !== 0n) throw new Error("");
             const p = polynomials.slice(count, count + length);
             count += length;
 
@@ -186,17 +187,23 @@ export function computeWi(n, curve, logger) {
         if(Fr.eq(gen, nthRoot)) return true;
         return false;
     }  
+
+    // function isValidGenerator() {
+    //     for(let i = 0; i < p.length; ++i) {
+    //         const x = Fr.exp(gen, Scalar.div(orderRsub1, p[i]));
+    //         if(Fr.eq(x, Fr.one)) {
+    //             return false;
+    //         } 
+    //     }
+    //     return true;
+    // }
+
 }
 
 export function computeRootWi(n, nthRoot, power, curve, logger) {
     // Hardcorded 3th-root of Fr.w[28]
 
     let x = curve.Fr.e(467799165886069610036046866799264026481344299079011762026774533774345988080n);
-
-    let r = curve.Fr.one;
-    for(let i = 0; i < n; ++i) {
-        r = curve.Fr.mul(r, x);
-    }
     
     let root = curve.Fr.one;
     for(let i = 0; i < nthRoot; ++i) {
