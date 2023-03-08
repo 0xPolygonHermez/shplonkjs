@@ -1,6 +1,40 @@
 import { Scalar, BigBuffer } from "ffjavascript";
 import { readBinFile } from "@iden3/binfileutils";
-import * as utils from "./powersoftau_utils.js";
+import * as ptau_utils from "./powersoftau_utils.js";
+import { checkValidRoot } from "./helpers_generators.js";
+import { getDivisors, f } from "./utils.js";
+
+function calculateDegree(polsLength, pols) {
+    let count = 0;
+    let maxDegree;
+    for(let k = 0; k < polsLength.length; ++k) {
+        const p = pols.slice(count, count + polsLength[k]);
+        const degrees = p.map((pi, index) => pi.degree*polsLength[k] + index);
+        const fiDegree = Math.max(...degrees);
+        if(!maxDegree || fiDegree > maxDegree) maxDegree = fiDegree;
+        count += polsLength[k];
+    }
+    return maxDegree;
+}
+
+
+function calculatePolsLength(pols, n, divisors) {
+    const N = pols.length;
+    let possibleSplits = [];
+    f([], 0, N, n, 0, divisors, possibleSplits);
+    if(possibleSplits.length === 0) throw new Error("");
+    let maxDegree;
+    let split;
+    for(let i = 0; i < possibleSplits.length; ++i) {
+        const deg = calculateDegree(possibleSplits[i], pols);
+        if(!maxDegree || deg < maxDegree) {
+            maxDegree = deg;
+            split = possibleSplits[i];
+        }
+    }    
+
+    return split;
+}
 
 export function getFByStage(config, curve) {
     let f = [];
@@ -15,36 +49,39 @@ export function getFByStage(config, curve) {
             const polynomials = config.polDefs[j].filter(p => p.stage === i);
             const names = polynomials.map(p => p.name);
             if((new Set(names)).size !== names.length) throw new Error("");
-            
-            for(let k = 0; k < polynomials.length; ++k) {
-                if(!polsStage.map(p => p.name).includes(polynomials[k].name)){
-                    polsStage.push(polynomials[k]);
-                }
-            }
+            polsStage.push(...polynomials);
+
             if(polynomials.length > 0) {
                 openingPoints.push(j);
             }
         }
 
+        if(polsStage.length % openingPoints.length !== 0) throw new Error("");
+        
+        let pols = [];
+        for(let i = 0; i < polsStage.length; ++i) {
+            if(!pols.map(p => p.name).includes(polsStage[i].name)){
+                pols.push(polsStage[i]);
+            }
+        }
 
-        const nPolsStage = polsStage.length;
-
-        polsStage = polsStage.sort((a,b) => a.degree <= b.degree ? 1 : -1);
+        pols = pols.sort((a,b) => a.degree <= b.degree ? 1 : -1);
         
         const nPols = 1 + config.extraMuls[i];
-
-        if(nPols > nPolsStage) throw new Error("");
-
-        let count = 0;
+        if(nPols > pols.length) throw new Error("");
+    
+        const order = Scalar.sub(curve.Fr.p, 1);
+        const divisors = getDivisors(order, pols.length);
+        
+        const polsLength = calculatePolsLength(pols, nPols, divisors);
 
         // Define the composed polinomial f with all the polinomials provided
-        for(let k = 0; k < nPols; ++k) {
-            const length = (nPols - k) <= nPolsStage % nPols ? Math.ceil(nPolsStage / nPols) : Math.floor(nPolsStage / nPols);
-            if(Scalar.mod(Scalar.sub(curve.Fr.p, 1), Scalar.e(length)) !== 0n) throw new Error("");
-            const p = polsStage.slice(count, count + length);
-            count += length;
+        let count = 0;
+        for(let k = 0; k < polsLength.length; ++k) {
+            const p = pols.slice(count, count + polsLength[k]);
+            count += polsLength[k];
 
-            const degrees = p.map((pi, index) => pi.degree*length + index);
+            const degrees = p.map((pi, index) => pi.degree*polsLength[k] + index);
             const fiDegree = Math.max(...degrees);
             const polsNames = p.map(pi => pi.name);
             const fi = {index: index++, pols: polsNames, openingPoints, degree: fiDegree, stages: [{stage: i, pols: polsNames}]};
@@ -68,24 +105,23 @@ export function getFByOpeningPoints(config, curve) {
 
         if((new Set(polynomials.map(p => p.name))).size !== polynomials.map(p => p.name).length) throw new Error("");
 
-        const nPolsOpeningPoint = polynomials.length;
-
         polynomials = polynomials.sort((a,b) => a.degree <= b.degree ? 1 : -1);
 
         const nPols = 1 + config.extraMuls[i];
-
-        if(nPols > nPolsOpeningPoint) throw new Error("");
-
-        let count = 0;
+        if(nPols > polynomials.length) throw new Error("");
+    
+        const order = Scalar.sub(curve.Fr.p, 1);
+        const divisors = getDivisors(order, polynomials.length);
+        
+        const polsLength = calculatePolsLength(polynomials, nPols, divisors);
 
         // Define the composed polinomial f with all the polinomials provided
-        for(let k = 0; k < nPols; ++k) {
-            const length = (nPols - k) <= nPolsOpeningPoint % nPols ? Math.ceil(nPolsOpeningPoint / nPols) : Math.floor(nPolsOpeningPoint / nPols);
-            if(Scalar.mod(Scalar.sub(curve.Fr.p, 1), Scalar.e(length)) !== 0n) throw new Error("");
-            const p = polynomials.slice(count, count + length);
-            count += length;
+        let count = 0;
+        for(let k = 0; k < polsLength.length; ++k) {
+            const p = polynomials.slice(count, count + polsLength[k]);
+            count += polsLength[k];
 
-            const degrees = p.map((pi, index) => pi.degree*length + index);
+            const degrees = p.map((pi, index) => pi.degree*polsLength[k] + index);
             const fiDegree = Math.max(...degrees);
             const polsNames = p.map(pi => pi.name);
             const stages = {};
@@ -125,21 +161,17 @@ export async function getPowersOfTau(f, ptauFilename, power, curve, logger) {
 
     // Get curve defined in PTau
     if (logger) logger.info("> Getting curve from PTau settings");
-    const {curve: curvePTau} = await utils.readPTauHeader(fdPTau, pTauSections);
+    const {curve: curvePTau} = await ptau_utils.readPTauHeader(fdPTau, pTauSections);
     if(curve !== curvePTau) throw new Error("Invalid curve");
 
     const sG1 = curve.G1.F.n8 * 2;
     const sG2 = curve.G2.F.n8 * 2;
     
-    
-    // TODO: CHECK THIS IS PROBABLY WRONG!!! THE CORRECT APPROACH WILL BE maxFiDegree + ????
-    const PTauDegree = (maxFiDegree + nPols);
-
-    const nDomainSize = Math.ceil(PTauDegree / Math.pow(2, power));
+    const nDomainSize = Math.ceil(maxFiDegree / Math.pow(2, power));
     const pow2DomainSize = Math.pow(2, Math.ceil(Math.log2(nDomainSize)));
     const extendedDomainSize = Math.pow(2, power) * pow2DomainSize;
 
-    if (pTauSections[2][0].size < PTauDegree * sG1) {
+    if (pTauSections[2][0].size < maxFiDegree * sG1) {
         throw new Error("Powers of Tau is not big enough for this circuit size. Section 2 too small.");
     }
     if (pTauSections[3][0].size < sG2) {
@@ -147,7 +179,7 @@ export async function getPowersOfTau(f, ptauFilename, power, curve, logger) {
     }
 
     const PTau = new BigBuffer(extendedDomainSize * sG1);
-    await fdPTau.readToBuffer(PTau, 0, PTauDegree * sG1, pTauSections[2][0].p);
+    await fdPTau.readToBuffer(PTau, 0, maxFiDegree * sG1, pTauSections[2][0].p);
     
     const X_2 = await fdPTau.read(sG2, pTauSections[3][0].p + sG2);
 
@@ -156,59 +188,25 @@ export async function getPowersOfTau(f, ptauFilename, power, curve, logger) {
     return {PTau, X_2};
 }
 
-export function computeWi(n, curve, logger) {
-    const Fr = curve.Fr;
+export function computeWi(k, curve, logger) {
 
-    if (n && (n & (n - 1)) === 0) {
-        return Fr.w[Math.log2(n)];
-    }
-    
-    // WHYYYYYY ?
-    let orderRsub1 = Scalar.div(Scalar.sub(Fr.p, 1), 6);
-    
-    let exponent = Scalar.div(orderRsub1, n);
+    let orderRsub1 = Scalar.sub(curve.Fr.p, 1)
 
-    let value = Fr.two;
-    let gen = Fr.exp(value, exponent);
+    if(Scalar.mod(orderRsub1, Scalar.e(k))) throw new Error("");
 
-    while(!isValidGenerator(n)) {
-        value = Fr.add(value, Fr.one);
-        gen = Fr.exp(value, exponent);
-    }
-
-    return gen;
-
-    function isValidGenerator(n) {  
-        let nthRoot = gen;
-        for(let i = 0; i < n; ++i) {
-            nthRoot = Fr.mul(nthRoot, gen);
-        }
-
-        if(Fr.eq(gen, nthRoot)) return true;
-        return false;
-    }  
-
-    // function isValidGenerator() {
-    //     for(let i = 0; i < p.length; ++i) {
-    //         const x = Fr.exp(gen, Scalar.div(orderRsub1, p[i]));
-    //         if(Fr.eq(x, Fr.one)) {
-    //             return false;
-    //         } 
-    //     }
-    //     return true;
-    // }
-
+    return curve.Fr.exp(curve.Fr.nqr, Scalar.div(orderRsub1, k));
 }
 
-export function computeRootWi(n, nthRoot, power, curve, logger) {
-    // Hardcorded 3th-root of Fr.w[28]
+export function computeRootWi(k, kthRoot, power, curve, logger) {
+    let orderRsub1 = Scalar.sub(curve.Fr.p, 1);
 
-    let x = curve.Fr.e(467799165886069610036046866799264026481344299079011762026774533774345988080n);
+    if(Scalar.mod(orderRsub1, Scalar.e(k))) throw new Error("");
     
-    let root = curve.Fr.one;
-    for(let i = 0; i < nthRoot; ++i) {
-        root = curve.Fr.mul(root, curve.Fr.e(467799165886069610036046866799264026481344299079011762026774533774345988080n));
+    let value = curve.Fr.exp(curve.Fr.nqr, Scalar.div(orderRsub1, Scalar.mul(Scalar.pow(2,28),k)));
 
+    let root = curve.Fr.one;
+    for(let i = 0; i < kthRoot; ++i) {
+        root = curve.Fr.mul(root, value);
     }
     return curve.Fr.exp(root, 2 ** (28 - power));
 }

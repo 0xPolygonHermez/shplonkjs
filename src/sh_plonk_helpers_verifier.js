@@ -1,7 +1,7 @@
 import {Polynomial} from "./polynomial/polynomial.js";
 
 
-function computeRi(f, evals, roots, challengesY, curve, logger) {
+function computeRi(f, evals, roots, challengeY, curve, logger) {
     const n = roots.length;
     const rootsRi = roots.flat();
     const nPols = f.pols.length;
@@ -26,12 +26,12 @@ function computeRi(f, evals, roots, challengesY, curve, logger) {
 
     // Evaluate the polynomial in challenges.y
     if (logger) logger.info("··· Computing evaluation r1(y)");
-    const evalRi = ri.evaluate(challengesY);  
+    const evalRi = ri.evaluate(challengeY);  
     
     return evalRi;
 }
 
-export function computeR(f, orderedEvals, roots, challengesY, curve, logger) {
+export function computeR(f, orderedEvals, roots, challengeY, curve, logger) {
     const r = [];
     for(let i = 0; i < f.length; ++i) {
         const evals = [];
@@ -39,7 +39,7 @@ export function computeR(f, orderedEvals, roots, challengesY, curve, logger) {
             const wPower = f[i].openingPoints[j] === 0 ? "" : f[i].openingPoints[j] === 1 ? "w" : `w${f[i].openingPoints[j]}`;
             evals.push(...f[i].pols.map(fi => orderedEvals.find(e => e.name === fi + wPower).evaluation));
         }
-        const ri = computeRi(f[i], evals, roots[i], challengesY, curve, logger);
+        const ri = computeRi(f[i], evals, roots[i], challengeY, curve, logger);
         r.push(ri);
     }
 
@@ -48,7 +48,7 @@ export function computeR(f, orderedEvals, roots, challengesY, curve, logger) {
 
 
 
-export function calculateQuotients(challengesY, challengesAlpha, roots, curve, logger) {
+export function calculateQuotients(challengeY, challengeAlpha, roots, curve, logger) {
     if(logger) logger.info("Calculating quotients");
     const mulH = [];
 
@@ -56,7 +56,7 @@ export function calculateQuotients(challengesY, challengesAlpha, roots, curve, l
         const rootsRi = roots[i].flat();
         let mulHi = curve.Fr.one;
         for (let k = 0; k < rootsRi.length; k++) {
-            mulHi = curve.Fr.mul(mulHi, curve.Fr.sub(challengesY, rootsRi[k]));
+            mulHi = curve.Fr.mul(mulHi, curve.Fr.sub(challengeY, rootsRi[k]));
         }
         mulH.push(mulHi);
 
@@ -66,10 +66,10 @@ export function calculateQuotients(challengesY, challengesAlpha, roots, curve, l
 
     const quotients = new Array(nRoots).fill(curve.Fr.one);    
     quotients[0] = mulH[0];
-    let challenges = challengesAlpha;
+    let challenge = challengeAlpha;
     for(let i = 1; i < nRoots; ++i) {
-        quotients[i] = curve.Fr.mul(challenges, curve.Fr.div(mulH[0], mulH[i]));
-        challenges = curve.Fr.mul(challenges, challengesAlpha);
+        quotients[i] = curve.Fr.mul(challenge, curve.Fr.div(mulH[0], mulH[i]));
+        challenge = curve.Fr.mul(challenge, challengeAlpha);
     }
 
     return quotients;
@@ -109,11 +109,11 @@ export function computeJ(W, quotient, curve, logger) {
 }
 
 
-export async function isValidPairing(vk, Wp, challengesY, F, E, J, curve, logger) {
+export async function isValidPairing(vk, Wp, challengeY, F, E, J, curve, logger) {
     if(logger) logger.info("Verifying pairing");
     const G1 = curve.G1;
 
-    const A1 = G1.add(G1.sub(G1.sub(F, E), J), G1.timesFr(Wp, challengesY));
+    const A1 = G1.add(G1.sub(G1.sub(F, E), J), G1.timesFr(Wp, challengeY));
     const A2 = curve.G2.one;
 
     const B1 = Wp;

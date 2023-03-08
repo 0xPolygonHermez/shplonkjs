@@ -932,6 +932,11 @@ export class Polynomial {
             new BigBuffer((xArr.length + 1) * Fr.n8) : new Uint8Array((xArr.length + 1) * Fr.n8);
         let polynomial = new Polynomial(buff, curve);
 
+        if(xArr.length === 0) {
+            polynomial.setCoef(0, Fr.one);
+            return polynomial;
+        }
+
         // Build a zerofier polynomial with the following form:
         // zerofier(X) = (X-xArr[0])(X-xArr[1])...(X-xArr[n])
         polynomial.setCoef(0, Fr.neg(xArr[0]));

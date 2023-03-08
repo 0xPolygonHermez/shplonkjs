@@ -3,6 +3,27 @@ import {Keccak256Transcript} from "./Keccak256Transcript.js";
 import { log2 } from "./polynomial/misc.js";
 import { Polynomial } from "./polynomial/polynomial.js";
 
+/**
+ * Compute xiSeed, which is used to compute all the roots
+ * It contains all the committed polynomials
+ */
+export function computeChallengeXiSeed(f, curve, logger) {
+    const transcript = new Keccak256Transcript(curve);
+
+    for(let i = 0; i < f.length; ++i) {
+        transcript.addPolCommitment(f[i].commit);
+    }
+
+    const challengesXiSeed = transcript.getChallenge();
+    if (logger) logger.info("> challenges xiSeed: " + curve.Fr.toString(challengesXiSeed));
+
+    return challengesXiSeed;
+}
+
+/**
+ * Compute challenge alpha, which is used to compute W
+ * It contains the previous challenge (xiSeed) and all the evaluations
+ */
 export function computeChallengeAlpha(xiSeed, orderedEvals, curve, logger) {
       
     const transcript = new Keccak256Transcript(curve);
@@ -18,6 +39,10 @@ export function computeChallengeAlpha(xiSeed, orderedEvals, curve, logger) {
     return challengesAlpha;
 }
 
+/**
+ * Compute challenge y, which is be used to compute Wp
+ * It contains the previous challenge (alpha) and the commitment of W
+ */
 export function computeChallengeY(W, challengeAlpha, curve, logger) {
     const transcript = new Keccak256Transcript(curve);
     transcript.addScalar(challengeAlpha);
@@ -28,20 +53,6 @@ export function computeChallengeY(W, challengeAlpha, curve, logger) {
 
     return challengesY;
 }
-
-export function computeChallengeXiSeed(f, curve, logger) {
-    const transcript = new Keccak256Transcript(curve);
-
-    for(let i = 0; i < f.length; ++i) {
-        transcript.addPolCommitment(f[i].commit);
-    }
-
-    const challengesXiSeed = transcript.getChallenge();
-    if (logger) logger.info("> challenges xiSeed: " + curve.Fr.toString(challengesXiSeed));
-
-    return challengesXiSeed;
-}
-
 
 
 function calculateRootsFi(initialOmega, initialValue, degFi, lcm, xiSeed, curve, logger) {

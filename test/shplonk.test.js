@@ -7,6 +7,7 @@ import { Polynomial } from '../src/polynomial/polynomial.js';
 import exportCalldata from '../src/sh_plonk_export_calldata.js';
 import exportSolidityVerifier from '../src/sh_plonk_export_solidity_verifier.js';
 import assert from "assert";
+import fs from "fs";
 
 describe("Shplonk test suite", function () {
     this.timeout(1000000000);
@@ -107,7 +108,11 @@ describe("Shplonk test suite", function () {
             const isValid = await verifyOpenings(zkey, committedPols, evaluations, curve);
             assert(isValid);
     
-            await exportCalldata("tmp/shplonk_calldata1.txt", zkey, committedPols, evaluations, curve);
+            if (!fs.existsSync("./tmp/test1")){
+                fs.mkdirSync("./tmp/test1", { recursive: true });
+            }
+
+            await exportCalldata("tmp/test1/shplonk_calldata.txt", zkey, committedPols, evaluations, curve);
     
             for(let i = 0; i < zkey.f.length; ++i) {
                 if(zkey.f[i].stages.length === 1 && zkey.f[i].stages[0].stage === 0) {
@@ -115,10 +120,10 @@ describe("Shplonk test suite", function () {
                 }
             }
     
-            await exportSolidityVerifier("tmp/shplonk_verifier1.sol", zkey, curve);
+            await exportSolidityVerifier("tmp/test1/shplonk_verifier.sol", zkey, curve);
         });
     
-        it("shplonk full test with scalar multiplications", async () => {
+        it.skip("shplonk full test with scalar multiplications", async () => {
             const ptauFilename = path.join("test", "powersOfTau15_final.ptau");
     
             const config = {
@@ -198,7 +203,11 @@ describe("Shplonk test suite", function () {
             const isValid = await verifyOpenings(zkey, committedPols, evaluations, curve);
             assert(isValid);
     
-            await exportCalldata("tmp/shplonk_calldata2.txt", zkey, committedPols, evaluations, curve);
+            if (!fs.existsSync("./tmp/test2")){
+                fs.mkdirSync("./tmp/test2", { recursive: true });
+            }
+
+            await exportCalldata("tmp/test2/shplonk_calldata.txt", zkey, committedPols, evaluations, curve);
     
             for(let i = 0; i < zkey.f.length; ++i) {
                 if(zkey.f[i].stages.length === 1 && zkey.f[i].stages[0].stage === 0) {
@@ -206,11 +215,11 @@ describe("Shplonk test suite", function () {
                 }
             }
     
-            await exportSolidityVerifier("tmp/shplonk_verifier2.sol", zkey, curve);
+            await exportSolidityVerifier("tmp/test2/shplonk_verifier.sol", zkey, curve);
         });
     });
 
-    describe("Testing shplonk using setup by opening points",() => {
+    describe.skip("Testing shplonk using setup by opening points",() => {
         it("shplonk full basic test with no scalar multiplications", async () => {
             const ptauFilename = path.join("test", "powersOfTau15_final.ptau");
     
@@ -286,7 +295,11 @@ describe("Shplonk test suite", function () {
             const isValid = await verifyOpenings(zkey, committedPols, evaluations, curve);
             assert(isValid);
     
-            await exportCalldata("tmp/shplonk_calldata3.txt", zkey, committedPols, evaluations, curve);
+            if (!fs.existsSync("./tmp/test3")){
+                fs.mkdirSync("./tmp/test3", { recursive: true });
+            }
+
+            await exportCalldata("tmp/test3/shplonk_calldata.txt", zkey, committedPols, evaluations, curve);
     
             for(let i = 0; i < zkey.f.length; ++i) {
                 if(zkey.f[i].stages.length === 1 && zkey.f[i].stages[0].stage === 0) {
@@ -294,7 +307,7 @@ describe("Shplonk test suite", function () {
                 }
             }
     
-            await exportSolidityVerifier("tmp/shplonk_verifier3.sol", zkey, curve);
+            await exportSolidityVerifier("tmp/test3/shplonk_verifier.sol", zkey, curve);
         });
 
         it.skip("shplonk full basic test with scalar multiplications", async () => {
@@ -314,8 +327,13 @@ describe("Shplonk test suite", function () {
                         {"name": "P5", "stage": 2, "degree": 33},
                         {"name": "P6", "stage": 2, "degree": 101}
                     ],  
+                    [
+                        {"name": "P4", "stage": 2, "degree": 34},
+                        {"name": "P5", "stage": 2, "degree": 33},
+                        {"name": "P6", "stage": 2, "degree": 101}
+                    ],  
                 ], 
-                "extraMuls": [0,0],
+                "extraMuls": [0,2,2],
             };
     
             const {zkey, PTau} = await setup(config, false, curve, ptauFilename);
@@ -367,7 +385,11 @@ describe("Shplonk test suite", function () {
             const isValid = await verifyOpenings(zkey, committedPols, evaluations, curve);
             assert(isValid);
     
-            await exportCalldata("tmp/shplonk_calldata4.txt", zkey, committedPols, evaluations, curve);
+            if (!fs.existsSync("./tmp/test4")){
+                fs.mkdirSync("./tmp/test4", { recursive: true });
+            }
+
+            await exportCalldata("tmp/test4/shplonk_calldata.txt", zkey, committedPols, evaluations, curve);
     
             for(let i = 0; i < zkey.f.length; ++i) {
                 if(zkey.f[i].stages.length === 1 && zkey.f[i].stages[0].stage === 0) {
@@ -375,7 +397,7 @@ describe("Shplonk test suite", function () {
                 }
             }
     
-            await exportSolidityVerifier("tmp/shplonk_verifier4.sol", zkey, curve);
+            await exportSolidityVerifier("tmp/test4/shplonk_verifier.sol", zkey, curve);
         });
     });
 

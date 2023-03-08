@@ -41,7 +41,7 @@ export async function setup(config, byStage, curve, ptauFilename, logger) {
 
     // Compute each of the generators and roots and add it to the zkey
     for(let i = 0; i < Object.keys(wPowers).length; ++i) {
-        const deg = Object.keys(wPowers)[i];
+        const deg = Number(Object.keys(wPowers)[i]);
         zkey[`w${deg}`] = computeWi(deg, curve, logger);
 
         const ws = wPowers[Object.keys(wPowers)[i]].sort();
@@ -150,13 +150,13 @@ export async function open(pk, PTau, ctx, committedPols, curve, logger) {
     const commitW = await W.multiExponentiation(PTau);
 
     // Calculate challenge Y from W commit
-    const challengesY = computeChallengeY(commitW, challengeAlpha, curve, logger);
+    const challengeY = computeChallengeY(commitW, challengeAlpha, curve, logger);
 
     // Define an array to store the inverses that will be calculated in the solidity verifier
     const toInverse = [];
 
     // Calculate Wp
-    const Wp = computeWp(pk.f, r, roots, W, challengesY, challengeAlpha, toInverse, curve, logger);
+    const Wp = computeWp(pk.f, r, roots, W, challengeY, challengeAlpha, toInverse, curve, logger);
     const commitW2 = await Wp.multiExponentiation(PTau);
     
     evaluations.inv = getMontgomeryBatchedInverse(roots, toInverse, curve, logger);
