@@ -1,13 +1,13 @@
-import { BigBuffer } from "ffjavascript";
-import {Keccak256Transcript} from "../Keccak256Transcript.js";
-import { Polynomial } from "../polynomial/polynomial.js";
-import { log2 } from "../utils.js";
+const {BigBuffer} = require("ffjavascript");
+const Keccak256Transcript = require("../Keccak256Transcript.js");
+const Polynomial = require("../polynomial/polynomial.js");
+const {log2} = require("../utils.js");
 
 /**
  * Compute xiSeed, which is used to compute all the roots
  * It contains all the committed polynomials
  */
-export function computeChallengeXiSeed(f, curve, logger) {
+module.exports.computeChallengeXiSeed = function computeChallengeXiSeed(f, curve, logger) {
     const transcript = new Keccak256Transcript(curve);
 
     for(let i = 0; i < f.length; ++i) {
@@ -24,7 +24,7 @@ export function computeChallengeXiSeed(f, curve, logger) {
  * Compute challenge alpha, which is used to compute W
  * It contains the previous challenge (xiSeed) and all the evaluations
  */
-export function computeChallengeAlpha(xiSeed, orderedEvals, curve, logger) {
+module.exports.computeChallengeAlpha = function computeChallengeAlpha(xiSeed, orderedEvals, curve, logger) {
       
     const transcript = new Keccak256Transcript(curve);
 
@@ -43,7 +43,7 @@ export function computeChallengeAlpha(xiSeed, orderedEvals, curve, logger) {
  * Compute challenge y, which is be used to compute Wp
  * It contains the previous challenge (alpha) and the commitment of W
  */
-export function computeChallengeY(W, challengeAlpha, curve, logger) {
+module.exports.computeChallengeY = function computeChallengeY(W, challengeAlpha, curve, logger) {
     const transcript = new Keccak256Transcript(curve);
     transcript.addScalar(challengeAlpha);
     transcript.addPolCommitment(W);
@@ -79,7 +79,7 @@ function calculateRootsFi(initialOmega, initialValue, degFi, lcm, xiSeed, curve,
     return S;
 }
 
-export function calculateRoots(zkey, xiSeed, curve, logger) {
+module.exports.calculateRoots = function calculateRoots(zkey, xiSeed, curve, logger) {
 
     const roots = [];
     for(let i = 0; i < zkey.f.length; ++i) {
@@ -99,7 +99,7 @@ export function calculateRoots(zkey, xiSeed, curve, logger) {
 
 
 
-export function getOrderedEvals(f, evaluations) {
+module.exports.getOrderedEvals = function getOrderedEvals(f, evaluations) {
     const orderedEvals = [];
     for(let i = 0; i < f.length; i++) {
         let evalsI = [];
@@ -121,7 +121,7 @@ export function getOrderedEvals(f, evaluations) {
 }
 
 
-export function sumCommits(commits, curve, logger) {
+module.exports.sumCommits = function sumCommits(commits, curve, logger) {
     let commit = curve.G1.zeroAffine;
     for(let i = 0; i < commits.length; ++i) {
         commit = curve.G1.add(commit, commits[i]); 
@@ -130,7 +130,7 @@ export function sumCommits(commits, curve, logger) {
     return curve.G1.toAffine(commit);
 }  
 
-export function sumPolynomials(polynomials, curve, logger) {
+module.exports.sumPolynomials = function sumPolynomials(polynomials, curve, logger) {
     if(polynomials.length === 1) return polynomials[0];
     let degrees = polynomials.map(p => p === undefined ? 0 : p.degree());
     let maxDegree = Math.max(...degrees);

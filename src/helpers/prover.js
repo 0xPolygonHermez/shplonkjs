@@ -1,5 +1,5 @@
-import {Polynomial} from "../polynomial/polynomial.js";
-import { Scalar } from "ffjavascript";
+const Polynomial = require("../polynomial/polynomial.js");
+const { Scalar } = require("ffjavascript");
 
 async function computeRi(f, roots, curve, logger) {
     // COMPUTE Ri
@@ -22,7 +22,7 @@ async function computeRi(f, roots, curve, logger) {
     return ri;  
 }
 
-export async function computeR(f, roots, curve, logger) {
+exports.computeR = async function computeR(f, roots, curve, logger) {
     const fPols = f.map(fi => fi.pol);
     const promises = [];
     for(let i = 0; i < fPols.length; ++i) {
@@ -34,7 +34,7 @@ export async function computeR(f, roots, curve, logger) {
     return r;
 }
 
-export function calculateEvaluations(pk, ctx, xiSeed, curve, logger) {
+exports.calculateEvaluations = function calculateEvaluations(pk, ctx, xiSeed, curve, logger) {
     // Calculate the array of opening points
     const openingPoints = []; 
 
@@ -71,7 +71,7 @@ export function calculateEvaluations(pk, ctx, xiSeed, curve, logger) {
     return {evaluations, openingPoints};
 }
 
-export function computeW(f, r, roots, challengesAlpha, openingPoints, curve, logger) {
+exports.computeW = function computeW(f, r, roots, challengesAlpha, openingPoints, curve, logger) {
     if (logger) logger.info("> Computing W polynomial");
 
     const fPols = f.map(fi => fi.pol);
@@ -188,7 +188,7 @@ function computeZTS2(roots, curve, logger) {
     return Polynomial.zerofierPolynomial(sRoots, curve);
 }
 
-export function computeWp(f, r, roots, W, challengesY, challengesAlpha, toInverse, curve, logger) {
+exports.computeWp = function computeWp(f, r, roots, W, challengesY, challengesAlpha, toInverse, curve, logger) {
 
     // 0 - Compute ZT
     const ZT = computeZT(roots, curve, logger);
@@ -234,7 +234,7 @@ function computeLi(toInverse, roots, curve, logger) {
     }
 }
 
-export function getMontgomeryBatchedInverse(roots, toInverse, curve, logger) {
+exports.getMontgomeryBatchedInverse = function getMontgomeryBatchedInverse(roots, toInverse, curve, logger) {
     //   · denominator needed in step 10 and 11 of the verifier
     //     toInverse.denH1 & toInverse.denH2  -> Computed in round5, computeL()
 

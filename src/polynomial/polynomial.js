@@ -17,9 +17,9 @@
     snarkjs. If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {BigBuffer} from "ffjavascript";
+const {BigBuffer} = require("ffjavascript");
 
-export class Polynomial {
+module.exports = class Polynomial {
     constructor(coefficients, curve, logger) {
         this.coef = coefficients;
         this.curve = curve;

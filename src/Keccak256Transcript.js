@@ -17,14 +17,13 @@
     snarkjs. If not, see <https://www.gnu.org/licenses/>.
 */
 
-import {Scalar} from "ffjavascript";
-import jsSha3 from "js-sha3";
-const { keccak256 } = jsSha3;
+const {Scalar} = require("ffjavascript");
+const { keccak256 } = require("js-sha3");
 
 const POLYNOMIAL = 0;
 const SCALAR = 1;
 
-export class Keccak256Transcript {
+module.exports = class Keccak256Transcript {
     constructor(curve) {
         this.G1 = curve.G1;
         this.Fr = curve.Fr;

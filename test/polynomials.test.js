@@ -1,11 +1,13 @@
-import {BigBuffer, getCurveFromName} from 'ffjavascript';
-import { Polynomial } from '../src/polynomial/polynomial.js';
-import assert from "assert";
-import { CPolynomial } from '../src/polynomial/cpolynomial.js';
-import { sumCommits, sumPolynomials } from '../src/helpers/helpers.js';
-import path from "path";
-import { readBinFile } from '@iden3/binfileutils';
-import { log2 } from '../src/utils.js';
+const {BigBuffer, getCurveFromName} = require("ffjavascript");
+const Polynomial = require("../src/polynomial/polynomial.js");
+const CPolynomial = require("../src/polynomial/cpolynomial.js");
+const assert = require("assert");
+const path = require("path");
+const {log2} = require("../src/utils.js");
+
+const { sumCommits, sumPolynomials } = require('../src/helpers/helpers.js');
+const { readBinFile } = require('@iden3/binfileutils');
+
 
 describe("Polynomials composition test suite", function () {
     this.timeout(1000000000);

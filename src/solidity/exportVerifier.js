@@ -17,18 +17,13 @@
     along with snarkJS. If not, see <https://www.gnu.org/licenses/>.
 */
 
-import ejs from "ejs";
-import {utils, getCurveFromName} from "ffjavascript";
-import { getOrderedEvals } from "../helpers/helpers.js";
-import path from 'path';
-import fs from "fs";
-import url from 'url';
+const ejs = require("ejs");
+const {utils} = require("ffjavascript");
+const { getOrderedEvals } = require("../helpers/helpers.js");
+const path = require("path");
+const fs = require("fs");
 
-const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
-
-const {unstringifyBigInts, stringifyBigInts} = utils;
-
-export default async function exportSolidityVerifier(fileName, vk, curve, logger) {
+module.exports.exportSolidityVerifier = async function exportSolidityVerifier(fileName, vk, curve, logger) {
     if (logger) logger.info("FFLONK EXPORT SOLIDITY VERIFIER STARTED");
 
     const f = vk.f;
@@ -73,7 +68,7 @@ export default async function exportSolidityVerifier(fileName, vk, curve, logger
 
     function toVkey(val) {
         const str = curve.Fr.toObject(val);
-        return stringifyBigInts(str);
+        return utils.stringifyBigInts(str);
     }
 }
 

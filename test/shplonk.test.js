@@ -1,12 +1,12 @@
-import {BigBuffer, getCurveFromName} from 'ffjavascript';
-import path from "path";
-import { commit, open, setup, verifyOpenings } from "../src/index.js";
-import { Polynomial } from '../src/polynomial/polynomial.js';
-import exportCalldata from '../src/solidity/exportCalldata.js';
-import exportSolidityVerifier from '../src/solidity/exportVerifier.js';
-import assert from "assert";
-import fs from "fs";
-import { log2 } from '../src/utils.js';
+const {BigBuffer, getCurveFromName} = require("ffjavascript");
+const path = require("path");
+const Polynomial = require("../src/polynomial/polynomial.js");
+const { commit, open, setup, verifyOpenings } = require("../src/index.js");
+const {exportCalldata} = require("../src/solidity/exportCalldata.js");
+const {exportSolidityVerifier} = require("../src/solidity/exportVerifier.js");
+const assert = require("assert");
+const fs = require("fs");
+const {log2} = require("../src/utils.js");
 
 describe("Shplonk test suite", function () {
     this.timeout(1000000000);

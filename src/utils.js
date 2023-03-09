@@ -1,4 +1,4 @@
-import { Scalar } from "ffjavascript";
+const { Scalar } = require("ffjavascript");
 
 function gcd(a, b)
 {
@@ -8,7 +8,7 @@ function gcd(a, b)
 }
  
 // Returns LCM of array elements
-export function lcm(arr)
+exports.lcm = function lcm(arr)
 {
     // Initialize result
     let ans = arr[0];
@@ -21,32 +21,7 @@ export function lcm(arr)
     return ans;
 }
 
-export function primeFactors(n) {
-    const factors = [];
-
-    // Handle even numbers
-    while (n % 2 === 0) {
-        factors.push(2);
-        n /= 2;
-    }
-
-    // Handle odd numbers
-    for (let i = 3; i <= Math.sqrt(n); i += 2) {
-        while (n % i === 0) {
-            factors.push(i);
-            n /= i;
-        }
-    }
-
-     // Handle remaining factor greater than 2
-    if (n > 2) {
-        factors.push(n);
-    }
-
-    return factors;
-}
-
-export function getDivisors(r, n) {
+exports.getDivisors = function getDivisors(r, n) {
     let divisors = [];
     for (let i = 1; i <= n; i++) {
       if (Scalar.mod(r, i) === 0n) {
@@ -56,12 +31,12 @@ export function getDivisors(r, n) {
     return divisors;
 }
 
-export function log2( V )
+exports.log2 = function log2( V )
 {
     return( ( ( V & 0xFFFF0000 ) !== 0 ? ( V &= 0xFFFF0000, 16 ) : 0 ) | ( ( V & 0xFF00FF00 ) !== 0 ? ( V &= 0xFF00FF00, 8 ) : 0 ) | ( ( V & 0xF0F0F0F0 ) !== 0 ? ( V &= 0xF0F0F0F0, 4 ) : 0 ) | ( ( V & 0xCCCCCCCC ) !== 0 ? ( V &= 0xCCCCCCCC, 2 ) : 0 ) | ( ( V & 0xAAAAAAAA ) !== 0 ) );
 }
 
-export function f(res, sum, N, n, lastDivisorIndex, divisors, possibleSplits) {
+exports.f = function f(res, sum, N, n, lastDivisorIndex, divisors, possibleSplits) {
     if(res.length === n && sum === N) {
         possibleSplits.push(res);
         return;

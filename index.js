@@ -1,0 +1,12 @@
+module.exports.exportCalldata = require("./src/solidity/exportCalldata.js").exportCalldata;
+module.exports.exportSolidityVerifier = require("./src/solidity/exportVerifier.js").exportSolidityVerifier;
+module.exports.setup = require("./src/index.js").setup;
+module.exports.commit = require("./src/index.js").commit;
+module.exports.open = require("./src/index.js").open;
+module.exports.verifyOpenings = require("./src/index.js").verifyOpenings;
+module.exports.computeChallengeXiSeed = require("./src/helpers/helpers.js").computeChallengeXiSeed;
+module.exports.computeChallengeAlpha = require("./src/helpers/helpers.js").computeChallengeAlpha;
+module.exports.computeChallengeY = require("./src/helpers/helpers.js").computeChallengeY;
+module.exports.getOrderedEvals = require("./src/helpers/helpers.js").getOrderedEvals;
+module.exports.sumCommits = require("./src/helpers/helpers.js").sumCommits;
+module.exports.sumPolynomials = require("./src/helpers/helpers.js").sumPolynomials;

@@ -1,7 +1,6 @@
 {
   "name": "shplonkjs",
   "version": "0.0.1",
-  "type": "module",
   "description": "shPLONK javascript implementation",
   "main": "index.js",
   "scripts": {

@@ -1,4 +1,4 @@
-import {Polynomial} from "../polynomial/polynomial.js";
+const Polynomial = require("../polynomial/polynomial.js");
 
 
 function computeRi(f, evals, roots, challengeY, curve, logger) {
@@ -31,7 +31,7 @@ function computeRi(f, evals, roots, challengeY, curve, logger) {
     return evalRi;
 }
 
-export function computeR(f, orderedEvals, roots, challengeY, curve, logger) {
+exports.computeRVerifier = function computeRVerifier(f, orderedEvals, roots, challengeY, curve, logger) {
     const r = [];
     for(let i = 0; i < f.length; ++i) {
         const evals = [];
@@ -48,7 +48,7 @@ export function computeR(f, orderedEvals, roots, challengeY, curve, logger) {
 
 
 
-export function calculateQuotients(challengeY, challengeAlpha, roots, curve, logger) {
+exports.calculateQuotients = function calculateQuotients(challengeY, challengeAlpha, roots, curve, logger) {
     if(logger) logger.info("Calculating quotients");
     const mulH = [];
 
@@ -75,7 +75,7 @@ export function calculateQuotients(challengeY, challengeAlpha, roots, curve, log
     return quotients;
 }
 
-export function computeF(f, quotients, curve, logger) {
+exports.computeF = function computeF(f, quotients, curve, logger) {
     if(logger) logger.info("Computing F");
     const G1 = curve.G1;
     
@@ -88,7 +88,7 @@ export function computeF(f, quotients, curve, logger) {
     return F;
 }
 
-export function computeE(r, quotients, curve, logger) {
+exports.computeE = function computeE(r, quotients, curve, logger) {
     if(logger) logger.info("Computing E");
     const G1 = curve.G1;
     
@@ -101,7 +101,7 @@ export function computeE(r, quotients, curve, logger) {
     return G1.timesFr(G1.one, E);
 }
 
-export function computeJ(W, quotient, curve, logger) {
+exports.computeJ = function computeJ(W, quotient, curve, logger) {
     if(logger) logger.info("Computing J");
     const G1 = curve.G1;
 
@@ -109,7 +109,7 @@ export function computeJ(W, quotient, curve, logger) {
 }
 
 
-export async function isValidPairing(vk, Wp, challengeY, F, E, J, curve, logger) {
+exports.isValidPairing = async function isValidPairing(vk, Wp, challengeY, F, E, J, curve, logger) {
     if(logger) logger.info("Verifying pairing");
     const G1 = curve.G1;
 

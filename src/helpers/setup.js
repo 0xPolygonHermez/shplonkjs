@@ -1,6 +1,6 @@
-import { Scalar, BigBuffer, getCurveFromQ } from "ffjavascript";
-import { readBinFile } from "@iden3/binfileutils";
-import { getDivisors, f } from "../utils.js";
+const { Scalar, BigBuffer, getCurveFromQ } = require("ffjavascript");
+const { readBinFile } = require("@iden3/binfileutils");
+const { getDivisors, f } = require("../utils.js");
 
 function calculateDegree(polsLength, pols) {
     let count = 0;
@@ -34,7 +34,7 @@ function calculatePolsLength(pols, n, divisors) {
     return split;
 }
 
-export function getFByStage(config, curve) {
+exports.getFByStage = function getFByStage(config, curve) {
     let f = [];
     let index = 0;
 
@@ -96,7 +96,7 @@ export function getFByStage(config, curve) {
     return f;
 }
 
-export function getFByOpeningPoints(config, curve) {
+exports.getFByOpeningPoints = function getFByOpeningPoints(config, curve) {
     let f = [];
     let index = 0;
 
@@ -167,7 +167,7 @@ async function readPTauHeader(fd, sections) {
     return {curve, power, ceremonyPower};
 }
 
-export async function getPowersOfTau(f, ptauFilename, power, curve, logger) {
+exports.getPowersOfTau = async function getPowersOfTau(f, ptauFilename, power, curve, logger) {
     let nPols = 0;
     let maxFiDegree = 0;
     for(let i = 0; i < f.length; ++i) {
@@ -212,7 +212,7 @@ export async function getPowersOfTau(f, ptauFilename, power, curve, logger) {
     return {PTau, X_2};
 }
 
-export function computeWi(k, curve, logger) {
+exports.computeWi = function computeWi(k, curve, logger) {
 
     let orderRsub1 = Scalar.sub(curve.Fr.p, 1)
 
@@ -221,7 +221,7 @@ export function computeWi(k, curve, logger) {
     return curve.Fr.exp(curve.Fr.nqr, Scalar.div(orderRsub1, k));
 }
 
-export function computeRootWi(k, kthRoot, power, curve, logger) {
+exports.computeRootWi = function computeRootWi(k, kthRoot, power, curve, logger) {
     let orderRsub1 = Scalar.sub(curve.Fr.p, 1);
 
     if(Scalar.mod(orderRsub1, Scalar.e(k))) throw new Error(`${k} does not divide the order of the curve and hence cannot find a valid generator`);

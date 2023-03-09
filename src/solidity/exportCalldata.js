@@ -1,11 +1,11 @@
-import { getOrderedEvals, sumCommits } from "../helpers/helpers.js";
-import fs from "fs";
+const { getOrderedEvals, sumCommits } = require("../helpers/helpers.js");
+const fs = require("fs");
 
 function i2hex(i) {
     return ("0" + i.toString(16)).slice(-2);
 }
 
-export default async function exportCalldata(fileName, zkey, committedPols, evaluations, curve, logger) {
+module.exports.exportCalldata = async function exportCalldata(fileName, zkey, committedPols, evaluations, curve, logger) {
 
     const G1 = curve.G1;
     const Fr = curve.Fr;

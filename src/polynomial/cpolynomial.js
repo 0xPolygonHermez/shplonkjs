@@ -22,11 +22,12 @@
 // We can use this class to avoid the allocation of a big memory buffer
 // for the coefficients because in some cases a big number of the coefficients are zero
 
-import {BigBuffer} from "ffjavascript";
-import { log2 } from "../utils.js";
-import {Polynomial} from "./polynomial.js";
+const {BigBuffer} = require("ffjavascript");
+const {log2} = require("../utils.js");
+const Polynomial = require("./polynomial.js");
 
-export class CPolynomial {
+
+module.exports = class CPolynomial {
     constructor(n, curve, logger) {
         this.n = n;
         this.polynomials = Array(n).fill(undefined);

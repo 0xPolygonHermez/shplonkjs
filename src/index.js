@@ -1,14 +1,14 @@
-import { calculateRoots, computeChallengeAlpha, computeChallengeXiSeed, computeChallengeY, getOrderedEvals, sumCommits, sumPolynomials } from "./helpers/helpers.js";
-import { calculateEvaluations, computeR, computeW, computeWp, getMontgomeryBatchedInverse } from "./helpers/prover.js";
-import { calculateQuotients, computeE, computeF, computeJ, computeR as computeRVerifier, isValidPairing } from "./helpers/verifier.js";
-import { CPolynomial } from "./polynomial/cpolynomial.js";
-import { lcm } from "./utils.js";
-import { computeRootWi, computeWi, getFByStage, getFByOpeningPoints, getPowersOfTau } from "./helpers/setup.js";
+const { calculateRoots, computeChallengeAlpha, computeChallengeXiSeed, computeChallengeY, getOrderedEvals, sumCommits, sumPolynomials } = require("./helpers/helpers.js");
+const { calculateEvaluations, computeR, computeW, computeWp, getMontgomeryBatchedInverse } = require("./helpers/prover.js");
+const { calculateQuotients, computeE, computeF, computeJ, computeRVerifier, isValidPairing } = require("./helpers/verifier.js");
+const CPolynomial = require("./polynomial/cpolynomial.js");
+const { lcm } = require("./utils.js");
+const { computeRootWi, computeWi, getFByStage, getFByOpeningPoints, getPowersOfTau } = require("./helpers/setup.js");
 
 /*
     
 */
-export async function setup(config, curve, ptauFilename, logger) {
+module.exports.setup = async function setup(config, curve, ptauFilename, logger) {
     
     // Given a config, calculate the fi composed polynomials that will be used in the protocol
     if(!["stage", "openingPoints"].includes(config.split)) throw new Error(`${config.split} is not valid. You can only split polynomials by "stage" or "openingPoints".`);
@@ -62,7 +62,7 @@ export async function setup(config, curve, ptauFilename, logger) {
 }
 
 
-export async function commit(stage, pk, ctx, PTau, curve, logger) {
+module.exports.commit = async function commit(stage, pk, ctx, PTau, curve, logger) {
 
     // Get all the polynomials that are being committed by checking each fi definition
     // and the polsNames list provided by the user
@@ -111,7 +111,7 @@ export async function commit(stage, pk, ctx, PTau, curve, logger) {
 }
 
 
-export async function open(pk, PTau, ctx, committedPols, curve, logger) {
+module.exports.open = async function open(pk, PTau, ctx, committedPols, curve, logger) {
     // Store all the committed polynomials to its corresponding fi
     // If the composed polynomial was split in several stages, sum the polynomial and the commits to obtain the final fi
     for(let i = 0; i < pk.f.length; ++i) {
@@ -167,7 +167,7 @@ export async function open(pk, PTau, ctx, committedPols, curve, logger) {
     return [commitW, commitW2, evaluations, openingPoints, xiSeed];
 }
 
-export async function verifyOpenings(vk, committedPols, evaluations, curve, logger) {
+module.exports.verifyOpenings = async function verifyOpenings(vk, committedPols, evaluations, curve, logger) {
     
     const W = committedPols.W1.commit;
     const Wp = committedPols.W2.commit;
