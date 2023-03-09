@@ -1,4 +1,4 @@
-import { getOrderedEvals, sumCommits } from "./sh_plonk_helpers.js";
+import { getOrderedEvals, sumCommits } from "../helpers/helpers.js";
 import fs from "fs";
 
 function i2hex(i) {

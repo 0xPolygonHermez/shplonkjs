@@ -297,7 +297,7 @@ contract ShPlonkVerifier {
 <% } -%>
                 
                 // Execute Montgomery batched inversions of the previous prepared values
-                inverseArray(pProof, add(pMem, pDenH1), <%- inversionCounter %>)
+                inverseArray(pProof, add(pMem, <%- f.length > 1 ? "pDenH1" : "pLiS0Inv_0" %>), <%- inversionCounter %>)
             }
 
 <%  for(let i = 0; i < f.length; ++i) { -%>

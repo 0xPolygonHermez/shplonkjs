@@ -1,18 +1,20 @@
-import { calculateRoots, computeChallengeAlpha, computeChallengeXiSeed, computeChallengeY, getOrderedEvals, sumCommits, sumPolynomials } from "./sh_plonk_helpers.js";
-import { calculateEvaluations, computeR, computeW, computeWp, getMontgomeryBatchedInverse } from "./sh_plonk_helpers_prover.js";
-import { calculateQuotients, computeE, computeF, computeJ, computeR as computeRVerifier, isValidPairing } from "./sh_plonk_helpers_verifier.js";
+import { calculateRoots, computeChallengeAlpha, computeChallengeXiSeed, computeChallengeY, getOrderedEvals, sumCommits, sumPolynomials } from "./helpers/helpers.js";
+import { calculateEvaluations, computeR, computeW, computeWp, getMontgomeryBatchedInverse } from "./helpers/prover.js";
+import { calculateQuotients, computeE, computeF, computeJ, computeR as computeRVerifier, isValidPairing } from "./helpers/verifier.js";
 import { CPolynomial } from "./polynomial/cpolynomial.js";
 import { lcm } from "./utils.js";
-import { computeRootWi, computeWi, getFByStage, getFByOpeningPoints, getPowersOfTau } from "./sh_plonk_helpers_setup.js";
+import { computeRootWi, computeWi, getFByStage, getFByOpeningPoints, getPowersOfTau } from "./helpers/setup.js";
 
 /*
     
 */
-export async function setup(config, byStage, curve, ptauFilename, logger) {
+export async function setup(config, curve, ptauFilename, logger) {
     
     // Given a config, calculate the fi composed polynomials that will be used in the protocol
-    const f = byStage ? getFByStage(config, curve) : getFByOpeningPoints(config, curve);
+    if(!["stage", "openingPoints"].includes(config.split)) throw new Error(`${config.split} is not valid. You can only split polynomials by "stage" or "openingPoints".`);
+    const f = config.split === "stage" ? getFByStage(config, curve) : getFByOpeningPoints(config, curve);
 
+    if(f.length === 1) throw new Error("Currently the case with a single fi is not supported.");
 
     // Get the definition of all the different generators (order and opening points) for each of the fi
     const wPowers = {};

@@ -1,4 +1,4 @@
-import {Polynomial} from "./polynomial/polynomial.js";
+import {Polynomial} from "../polynomial/polynomial.js";
 
 
 function computeRi(f, evals, roots, challengeY, curve, logger) {

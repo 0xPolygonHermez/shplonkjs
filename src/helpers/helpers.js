@@ -1,7 +1,7 @@
 import { BigBuffer } from "ffjavascript";
-import {Keccak256Transcript} from "./Keccak256Transcript.js";
-import { log2 } from "./polynomial/misc.js";
-import { Polynomial } from "./polynomial/polynomial.js";
+import {Keccak256Transcript} from "../Keccak256Transcript.js";
+import { Polynomial } from "../polynomial/polynomial.js";
+import { log2 } from "../utils.js";
 
 /**
  * Compute xiSeed, which is used to compute all the roots
@@ -65,7 +65,7 @@ function calculateRootsFi(initialOmega, initialValue, degFi, lcm, xiSeed, curve,
     const S = [];
     S[0] = initialValue;
 
-    if (lcm % degFi !== 0) throw new Error();
+    if (lcm % degFi !== 0) throw new Error(`Degree of the fi ${degFi} must divide ${lcm}`);
 
     for(let i = 0; i < lcm/degFi; ++i) {
         S[0] = curve.Fr.mul(S[0], xiSeed);

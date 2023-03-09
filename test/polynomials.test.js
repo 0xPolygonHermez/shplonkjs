@@ -1,13 +1,13 @@
 import {BigBuffer, getCurveFromName} from 'ffjavascript';
-import { log2 } from '../src/polynomial/misc.js';
 import { Polynomial } from '../src/polynomial/polynomial.js';
 import assert from "assert";
 import { CPolynomial } from '../src/polynomial/cpolynomial.js';
-import { sumCommits, sumPolynomials } from '../src/sh_plonk_helpers.js';
-import { setup } from '../src/index.js';
+import { sumCommits, sumPolynomials } from '../src/helpers/helpers.js';
 import path from "path";
+import { readBinFile } from '@iden3/binfileutils';
+import { log2 } from '../src/utils.js';
 
-describe("Shplonk test suite", function () {
+describe("Polynomials composition test suite", function () {
     this.timeout(1000000000);
 
     let curve;
@@ -30,14 +30,20 @@ describe("Shplonk test suite", function () {
             {"name": "P4", "stage": 0, "degree": 65},
         ];
 
-        const config = {
-            "power": 5,
-            "polDefs": [pols], 
-            "extraMuls": [0],
-            "stages": 1,
-        };
+        if(!ptauFilename) throw new Error(`Powers of Tau filename is not provided.`);
 
-        const {PTau} = await setup(config, true, curve, ptauFilename);
+        const {fd: fdPTau, sections: pTauSections} = await readBinFile(ptauFilename, "ptau", 1, 1 << 22, 1 << 24);
+
+        if (!pTauSections[12]) {
+            throw new Error("Powers of Tau is not well prepared. Section 12 missing.");
+        }
+
+        const sG1 = curve.G1.F.n8 * 2;
+
+        const PTau = new BigBuffer(512 * sG1);
+        await fdPTau.readToBuffer(PTau, 0, 264 * sG1, pTauSections[2][0].p);
+
+        await fdPTau.close();
 
         const sFr = curve.Fr.n8;    
 

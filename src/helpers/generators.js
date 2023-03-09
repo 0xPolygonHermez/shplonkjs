@@ -1,5 +1,5 @@
 import { Scalar } from "ffjavascript";
-import { primeFactors } from "./utils.js";
+import { primeFactors } from "../utils.js";
 
 export function checkGenerator(Fr, gen, k) {
     let generator = gen;

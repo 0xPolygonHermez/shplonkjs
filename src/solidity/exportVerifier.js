@@ -19,7 +19,7 @@
 
 import ejs from "ejs";
 import {utils, getCurveFromName} from "ffjavascript";
-import { getOrderedEvals } from "./sh_plonk_helpers.js";
+import { getOrderedEvals } from "../helpers/helpers.js";
 import path from 'path';
 import fs from "fs";
 import url from 'url';
@@ -66,7 +66,7 @@ export default async function exportSolidityVerifier(fileName, vk, curve, logger
     };
     if (logger) logger.info("FFLONK EXPORT SOLIDITY VERIFIER FINISHED");
 
-    const template = await fs.promises.readFile(path.resolve(__dirname, "verifier_sh_plonk.sol.ejs"), "utf-8");
+    const template = await fs.promises.readFile(path.resolve(__dirname, "verifier.sol.ejs"), "utf-8");
 
     const verifierCode = ejs.render(template, obj); 
     fs.writeFileSync(fileName, verifierCode, "utf-8");

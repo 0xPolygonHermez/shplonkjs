@@ -1,4 +1,5 @@
-import {Polynomial} from "./polynomial/polynomial.js";
+import {Polynomial} from "../polynomial/polynomial.js";
+import { Scalar } from "ffjavascript";
 
 async function computeRi(f, roots, curve, logger) {
     // COMPUTE Ri
@@ -38,17 +39,14 @@ export function calculateEvaluations(pk, ctx, xiSeed, curve, logger) {
     const openingPoints = []; 
 
     // Firstly, calculate challenge xi, which will be xiSeed ^ lcm(f)
-    let challengesXi = curve.Fr.one;
-    for(let i = 0; i < pk.powerW; ++i) {
-        challengesXi = curve.Fr.mul(challengesXi, xiSeed);
-    }
+    let challengesXi = curve.Fr.exp(xiSeed, pk.powerW);
     openingPoints.push(challengesXi);
 
     // Calculate all the subsequent opening points zw, zw²... and add it to opening points
     let challengesXiw = challengesXi;
 
     for(let i = 1; i < pk.nOpeningPoints; ++i) {
-        challengesXiw = curve.Fr.mul(challengesXiw, curve.Fr.w[pk.power]);
+        challengesXiw = curve.Fr.mul(challengesXiw, curve.Fr.exp(curve.Fr.nqr, Scalar.div(Scalar.sub(curve.Fr.p, 1), Scalar.e(2**pk.power))));
         openingPoints.push(challengesXiw);
     }
         

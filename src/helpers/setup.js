@@ -1,8 +1,6 @@
-import { Scalar, BigBuffer } from "ffjavascript";
+import { Scalar, BigBuffer, getCurveFromQ } from "ffjavascript";
 import { readBinFile } from "@iden3/binfileutils";
-import * as ptau_utils from "./powersoftau_utils.js";
-import { checkValidRoot } from "./helpers_generators.js";
-import { getDivisors, f } from "./utils.js";
+import { getDivisors, f } from "../utils.js";
 
 function calculateDegree(polsLength, pols) {
     let count = 0;
@@ -22,7 +20,7 @@ function calculatePolsLength(pols, n, divisors) {
     const N = pols.length;
     let possibleSplits = [];
     f([], 0, N, n, 0, divisors, possibleSplits);
-    if(possibleSplits.length === 0) throw new Error("");
+    if(possibleSplits.length === 0) throw new Error(`It does not exist any way to split ${pols.length} in ${n} different pols`);
     let maxDegree;
     let split;
     for(let i = 0; i < possibleSplits.length; ++i) {
@@ -41,14 +39,14 @@ export function getFByStage(config, curve) {
     let index = 0;
 
     const nStages = Math.max(...config.polDefs.flat().map(p => p.stage)) + 1;
-    if(nStages !== config.extraMuls.length) throw new Error("");
+    if(nStages !== config.extraMuls.length) throw new Error(`There are ${nStages} stages but ${config.extraMuls.length} extra muls were provided`);
     for(let i = 0; i < nStages; ++i) {
         let openingPoints = [];
         let polsStage = [];
         for(let j = 0; j < config.polDefs.length; ++j) {
             const polynomials = config.polDefs[j].filter(p => p.stage === i);
             const names = polynomials.map(p => p.name);
-            if((new Set(names)).size !== names.length) throw new Error("");
+            if((new Set(names)).size !== names.length) throw new Error(`Some polynomials are duplicated in the same stage`);
             polsStage.push(...polynomials);
 
             if(polynomials.length > 0) {
@@ -56,19 +54,24 @@ export function getFByStage(config, curve) {
             }
         }
 
-        if(polsStage.length % openingPoints.length !== 0) throw new Error("");
-        
+        let checkPols = {};
+
         let pols = [];
-        for(let i = 0; i < polsStage.length; ++i) {
-            if(!pols.map(p => p.name).includes(polsStage[i].name)){
-                pols.push(polsStage[i]);
+        for(let k = 0; k < polsStage.length; ++k) {
+            if(!pols.map(p => p.name).includes(polsStage[k].name)){
+                pols.push(polsStage[k]);
             }
+            if(!checkPols[polsStage[k].name]) checkPols[polsStage[k].name] = 0;
+            ++checkPols[polsStage[k].name];
         }
+
+        if(!Object.values(checkPols).every(count => count === Object.values(checkPols)[0]))  throw new Error("Invalid configuration.");
+        if(pols.length * openingPoints.length !== polsStage.length) throw new Error("Invalid configuration.");
 
         pols = pols.sort((a,b) => a.degree <= b.degree ? 1 : -1);
         
         const nPols = 1 + config.extraMuls[i];
-        if(nPols > pols.length) throw new Error("");
+        if(nPols > pols.length) throw new Error(`There are ${pols.length} polynomials defined in stage ${i} but you are trying to split them in ${nPols}, which is not allowed`);
     
         const order = Scalar.sub(curve.Fr.p, 1);
         const divisors = getDivisors(order, pols.length);
@@ -81,7 +84,7 @@ export function getFByStage(config, curve) {
             const p = pols.slice(count, count + polsLength[k]);
             count += polsLength[k];
 
-            const degrees = p.map((pi, index) => pi.degree*polsLength[k] + index);
+            const degrees = p.map((pi, index) => (pi.degree + 1)*polsLength[k] + index);
             const fiDegree = Math.max(...degrees);
             const polsNames = p.map(pi => pi.name);
             const fi = {index: index++, pols: polsNames, openingPoints, degree: fiDegree, stages: [{stage: i, pols: polsNames}]};
@@ -98,17 +101,17 @@ export function getFByOpeningPoints(config, curve) {
     let index = 0;
 
     const nOpeningPoints = config.polDefs.length;
-    if(nOpeningPoints !== config.extraMuls.length) throw new Error("");
+    if(nOpeningPoints !== config.extraMuls.length) throw new Error(`There are ${nOpeningPoints} stages but ${config.extraMuls.length} extra muls were provided`);
 
     for(let i = 0; i < nOpeningPoints; ++i) {  
         let polynomials = config.polDefs[i];      
 
-        if((new Set(polynomials.map(p => p.name))).size !== polynomials.map(p => p.name).length) throw new Error("");
+        if((new Set(polynomials.map(p => p.name))).size !== polynomials.map(p => p.name).length) throw new Error(`Some polynomials are duplicated in the opening point`);
 
         polynomials = polynomials.sort((a,b) => a.degree <= b.degree ? 1 : -1);
 
         const nPols = 1 + config.extraMuls[i];
-        if(nPols > polynomials.length) throw new Error("");
+        if(nPols > polynomials.length) throw new Error(`There are ${polynomials.length} polynomials defined in ${i}th opening point but you are trying to split them in ${nPols}, which is not allowed`);
     
         const order = Scalar.sub(curve.Fr.p, 1);
         const divisors = getDivisors(order, polynomials.length);
@@ -121,7 +124,7 @@ export function getFByOpeningPoints(config, curve) {
             const p = polynomials.slice(count, count + polsLength[k]);
             count += polsLength[k];
 
-            const degrees = p.map((pi, index) => pi.degree*polsLength[k] + index);
+            const degrees = p.map((pi, index) => (pi.degree + 1)*polsLength[k] + index);
             const fiDegree = Math.max(...degrees);
             const polsNames = p.map(pi => pi.name);
             const stages = {};
@@ -143,6 +146,27 @@ export function getFByOpeningPoints(config, curve) {
     return f;
 }
 
+async function readPTauHeader(fd, sections) {
+    if (!sections[1])  throw new Error(fd.fileName + ": File has no  header");
+    if (sections[1].length>1) throw new Error(fd.fileName +": File has more than one header");
+
+    fd.pos = sections[1][0].p;
+    const n8 = await fd.readULE32();
+    const buff = await fd.read(n8);
+    const q = Scalar.fromRprLE(buff);
+
+    const curve = await getCurveFromQ(q);
+
+    if (curve.F1.n64*8 != n8) throw new Error(fd.fileName +": Invalid size");
+
+    const power = await fd.readULE32();
+    const ceremonyPower = await fd.readULE32();
+
+    if (fd.pos-sections[1][0].p != sections[1][0].size) throw new Error("Invalid PTau header size");
+
+    return {curve, power, ceremonyPower};
+}
+
 export async function getPowersOfTau(f, ptauFilename, power, curve, logger) {
     let nPols = 0;
     let maxFiDegree = 0;
@@ -151,7 +175,7 @@ export async function getPowersOfTau(f, ptauFilename, power, curve, logger) {
         if(f[i].degree > maxFiDegree) maxFiDegree = f[i].degree;
     }
         
-    if(!ptauFilename) throw new Error("");
+    if(!ptauFilename) throw new Error(`Powers of Tau filename is not provided.`);
     
     const {fd: fdPTau, sections: pTauSections} = await readBinFile(ptauFilename, "ptau", 1, 1 << 22, 1 << 24);
 
@@ -161,7 +185,7 @@ export async function getPowersOfTau(f, ptauFilename, power, curve, logger) {
 
     // Get curve defined in PTau
     if (logger) logger.info("> Getting curve from PTau settings");
-    const {curve: curvePTau} = await ptau_utils.readPTauHeader(fdPTau, pTauSections);
+    const {curve: curvePTau} = await readPTauHeader(fdPTau, pTauSections);
     if(curve !== curvePTau) throw new Error("Invalid curve");
 
     const sG1 = curve.G1.F.n8 * 2;
@@ -192,7 +216,7 @@ export function computeWi(k, curve, logger) {
 
     let orderRsub1 = Scalar.sub(curve.Fr.p, 1)
 
-    if(Scalar.mod(orderRsub1, Scalar.e(k))) throw new Error("");
+    if(Scalar.mod(orderRsub1, Scalar.e(k))) throw new Error(`${k} does not divide the order of the curve and hence cannot find a valid generator`);
 
     return curve.Fr.exp(curve.Fr.nqr, Scalar.div(orderRsub1, k));
 }
@@ -200,13 +224,13 @@ export function computeWi(k, curve, logger) {
 export function computeRootWi(k, kthRoot, power, curve, logger) {
     let orderRsub1 = Scalar.sub(curve.Fr.p, 1);
 
-    if(Scalar.mod(orderRsub1, Scalar.e(k))) throw new Error("");
+    if(Scalar.mod(orderRsub1, Scalar.e(k))) throw new Error(`${k} does not divide the order of the curve and hence cannot find a valid generator`);
     
-    let value = curve.Fr.exp(curve.Fr.nqr, Scalar.div(orderRsub1, Scalar.mul(Scalar.pow(2,28),k)));
+    let value = curve.Fr.exp(curve.Fr.nqr, Scalar.div(orderRsub1, Scalar.mul(2**power,k)));
 
     let root = curve.Fr.one;
     for(let i = 0; i < kthRoot; ++i) {
         root = curve.Fr.mul(root, value);
     }
-    return curve.Fr.exp(root, 2 ** (28 - power));
+    return root;
 }

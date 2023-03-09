@@ -23,7 +23,7 @@
 // for the coefficients because in some cases a big number of the coefficients are zero
 
 import {BigBuffer} from "ffjavascript";
-import {log2} from "./misc.js";
+import { log2 } from "../utils.js";
 import {Polynomial} from "./polynomial.js";
 
 export class CPolynomial {
