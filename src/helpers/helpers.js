@@ -8,16 +8,19 @@ const {log2} = require("../utils.js");
  * It contains all the committed polynomials
  */
 module.exports.computeChallengeXiSeed = function computeChallengeXiSeed(f, curve, logger) {
+    // Initialize new transcript
     const transcript = new Keccak256Transcript(curve);
 
+    // Add all commits to the transcript
     for(let i = 0; i < f.length; ++i) {
         transcript.addPolCommitment(f[i].commit);
     }
 
-    const challengesXiSeed = transcript.getChallenge();
-    if (logger) logger.info("> challenges xiSeed: " + curve.Fr.toString(challengesXiSeed));
+    // Calculate the challenge
+    const challengeXiSeed = transcript.getChallenge();
+    if (logger) logger.info("> challenge xiSeed: " + curve.Fr.toString(challengeXiSeed));
 
-    return challengesXiSeed;
+    return challengeXiSeed;
 }
 
 /**
@@ -25,18 +28,22 @@ module.exports.computeChallengeXiSeed = function computeChallengeXiSeed(f, curve
  * It contains the previous challenge (xiSeed) and all the evaluations
  */
 module.exports.computeChallengeAlpha = function computeChallengeAlpha(xiSeed, orderedEvals, curve, logger) {
-      
+    // Initialize new transcript
     const transcript = new Keccak256Transcript(curve);
 
+    // Add all the ordered evals to the transcript
     for(let i = 0; i < orderedEvals.length; ++i) {
         transcript.addScalar(orderedEvals[i].evaluation);
     }
+
+    // Add previous challenge xiSeed to the config
     transcript.addScalar(xiSeed);
 
-    const challengesAlpha = transcript.getChallenge();
-    if (logger) logger.info("> challenges Alpha: " + curve.Fr.toString(challengesAlpha));
+    // Calculate the challenge
+    const challengeAlpha = transcript.getChallenge();
+    if (logger) logger.info("> challenge Alpha: " + curve.Fr.toString(challengeAlpha));
 
-    return challengesAlpha;
+    return challengeAlpha;
 }
 
 /**
@@ -44,17 +51,26 @@ module.exports.computeChallengeAlpha = function computeChallengeAlpha(xiSeed, or
  * It contains the previous challenge (alpha) and the commitment of W
  */
 module.exports.computeChallengeY = function computeChallengeY(W, challengeAlpha, curve, logger) {
+    // Initialize new transcript
     const transcript = new Keccak256Transcript(curve);
+
+    // Add previous challenge alpha to the transcript
     transcript.addScalar(challengeAlpha);
+
+    // Add commit W to the transcript
     transcript.addPolCommitment(W);
 
-    const challengesY = transcript.getChallenge();
-    if (logger) logger.info("> challenges Y: " + curve.Fr.toString(challengesY));
+    // Calculate the challenge
+    const challengeY = transcript.getChallenge();
+    if (logger) logger.info("> challenge Y: " + curve.Fr.toString(challengeY));
 
-    return challengesY;
+    return challengeY;
 }
 
 
+/**
+ * 
+ */
 function calculateRootsFi(initialOmega, initialValue, degFi, lcm, xiSeed, curve, logger) {
     const wPower = [];
     wPower[0] = curve.Fr.one;
@@ -79,6 +95,9 @@ function calculateRootsFi(initialOmega, initialValue, degFi, lcm, xiSeed, curve,
     return S;
 }
 
+/**
+ * 
+ */
 module.exports.calculateRoots = function calculateRoots(zkey, xiSeed, curve, logger) {
 
     const roots = [];
@@ -98,7 +117,9 @@ module.exports.calculateRoots = function calculateRoots(zkey, xiSeed, curve, log
 }
 
 
-
+/**
+ * 
+ */
 module.exports.getOrderedEvals = function getOrderedEvals(f, evaluations) {
     const orderedEvals = [];
     for(let i = 0; i < f.length; i++) {
@@ -120,27 +141,40 @@ module.exports.getOrderedEvals = function getOrderedEvals(f, evaluations) {
     return orderedEvals;
 }
 
-
+/**
+ *  Return the sum of all commits in G1 curve
+ */
 module.exports.sumCommits = function sumCommits(commits, curve, logger) {
+    // Initialize commit to zero in G1 curve
     let commit = curve.G1.zeroAffine;
+
+    // Add all the commits
     for(let i = 0; i < commits.length; ++i) {
         commit = curve.G1.add(commit, commits[i]); 
     }
-
+    
     return curve.G1.toAffine(commit);
 }  
 
+/**
+ *  Return the polynomial resulting of the addition of all provided polynomials
+ */
 module.exports.sumPolynomials = function sumPolynomials(polynomials, curve, logger) {
+    // If only one polynomial is provided, return it
     if(polynomials.length === 1) return polynomials[0];
-    let degrees = polynomials.map(p => p === undefined ? 0 : p.degree());
-    let maxDegree = Math.max(...degrees);
 
+    // Calculate the maximum degree of the resulting polynomial
+    let maxDegree = Math.max(...polynomials.map(p => p === undefined ? 0 : p.degree()));
+
+    // Calculate the length of the buffer
     const lengthBuffer = 2 ** (log2(maxDegree) + 1);
 
     const sFr = curve.Fr.n8;
 
+    // Initialize the resulting polynomial
     let polynomial = new Polynomial(new BigBuffer(lengthBuffer * sFr), curve, logger);
 
+    // Add the coefficients of the polynomial
     for (let i = 0; i <= maxDegree; i++) {
         const i_n8 = i * sFr;
         let coef = curve.Fr.zero;
@@ -155,3 +189,27 @@ module.exports.sumPolynomials = function sumPolynomials(polynomials, curve, logg
     return polynomial;
 }
 
+/**
+ * 
+ */
+exports.addCommitsF = function addCommitsF(f, committedPols, addPols, curve, logger) {
+    for(let i = 0; i < f.length; ++i) {
+        const commits = [];
+        const pols = [];
+        for(let j = 0; j < f[i].stages.length; ++j) {
+            const index = `${f[i].index}_${f[i].stages[j].stage}`;
+            if(!committedPols[`f${index}`]) throw new Error(`f${index} not found`); 
+            if(!committedPols[`f${index}`].commit) throw new Error(`f${index} commit is missing`);
+            if(addPols) {
+                if(!committedPols[`f${index}`].pol) throw new Error(`f${index} polynomial is missing`);
+                pols.push(committedPols[`f${index}`].pol);
+            }
+            commits.push(committedPols[`f${index}`].commit);
+        }
+        f[i].commit = module.exports.sumCommits(commits, curve, logger);
+        if(addPols) {
+            f[i].pol = module.exports.sumPolynomials(pols, curve, logger); 
+            if(f[i].degree !== f[i].pol.degree()) throw new Error(`f${i} degree (${f[i].pol.degree()}) does not match with the configuration (${f[i].degree})`)
+        }
+    }
+}

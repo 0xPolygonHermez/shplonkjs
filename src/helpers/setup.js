@@ -84,10 +84,11 @@ exports.getFByStage = function getFByStage(config, curve) {
             const p = pols.slice(count, count + polsLength[k]);
             count += polsLength[k];
 
-            const degrees = p.map((pi, index) => (pi.degree + 1)*polsLength[k] + index);
+            const degrees = p.map((pi, index) => pi.degree*polsLength[k] + index);
             const fiDegree = Math.max(...degrees);
             const polsNames = p.map(pi => pi.name);
-            const fi = {index: index++, pols: polsNames, openingPoints, degree: fiDegree, stages: [{stage: i, pols: polsNames}]};
+            const polsNamesStage = p.map(pi => { return {name: pi.name, degree: pi.degree}; });
+            const fi = {index: index++, pols: polsNames, openingPoints, degree: fiDegree, stages: [{stage: i, pols: polsNamesStage}]};
         
             f.push(fi);
         }   
@@ -124,13 +125,13 @@ exports.getFByOpeningPoints = function getFByOpeningPoints(config, curve) {
             const p = polynomials.slice(count, count + polsLength[k]);
             count += polsLength[k];
 
-            const degrees = p.map((pi, index) => (pi.degree + 1)*polsLength[k] + index);
+            const degrees = p.map((pi, index) => pi.degree*polsLength[k] + index);
             const fiDegree = Math.max(...degrees);
             const polsNames = p.map(pi => pi.name);
             const stages = {};
             for(let l = 0; l < p.length; ++l) {
                 if(!stages[p[l].stage]) stages[p[l].stage] = [];
-                stages[p[l].stage].push(p[l].name);
+                stages[p[l].stage].push({name: p[l].name, degree: p[l].degree});
             }
 
             const stagesArray = [];
@@ -168,12 +169,6 @@ async function readPTauHeader(fd, sections) {
 }
 
 exports.getPowersOfTau = async function getPowersOfTau(f, ptauFilename, power, curve, logger) {
-    let nPols = 0;
-    let maxFiDegree = 0;
-    for(let i = 0; i < f.length; ++i) {
-        nPols += f[i].pols.length * f[i].openingPoints.length;
-        if(f[i].degree > maxFiDegree) maxFiDegree = f[i].degree;
-    }
         
     if(!ptauFilename) throw new Error(`Powers of Tau filename is not provided.`);
     
@@ -191,9 +186,10 @@ exports.getPowersOfTau = async function getPowersOfTau(f, ptauFilename, power, c
     const sG1 = curve.G1.F.n8 * 2;
     const sG2 = curve.G2.F.n8 * 2;
     
+    const maxFiDegree = Math.max(...f.map(fi => fi.degree + 1));
+
     const nDomainSize = Math.ceil(maxFiDegree / Math.pow(2, power));
     const pow2DomainSize = Math.pow(2, Math.ceil(Math.log2(nDomainSize)));
-    const extendedDomainSize = Math.pow(2, power) * pow2DomainSize;
 
     if (pTauSections[2][0].size < maxFiDegree * sG1) {
         throw new Error("Powers of Tau is not big enough for this circuit size. Section 2 too small.");
@@ -202,7 +198,7 @@ exports.getPowersOfTau = async function getPowersOfTau(f, ptauFilename, power, c
         throw new Error("Powers of Tau is not well prepared. Section 3 too small.");
     }
 
-    const PTau = new BigBuffer(extendedDomainSize * sG1);
+    const PTau = new BigBuffer(Math.pow(2, power) * pow2DomainSize * sG1);
     await fdPTau.readToBuffer(PTau, 0, maxFiDegree * sG1, pTauSections[2][0].p);
     
     const X_2 = await fdPTau.read(sG2, pTauSections[3][0].p + sG2);

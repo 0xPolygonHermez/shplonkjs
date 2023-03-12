@@ -3,7 +3,7 @@ const path = require("path");
 const Polynomial = require("../src/polynomial/polynomial.js");
 const { commit, open, setup, verifyOpenings } = require("../src/index.js");
 const {exportCalldata} = require("../src/solidity/exportCalldata.js");
-const {exportSolidityVerifier} = require("../src/solidity/exportVerifier.js");
+const {exportSolidityVerifier} = require("../src/solidity/exportSolidityVerifier.js");
 const assert = require("assert");
 const fs = require("fs");
 const {log2} = require("../src/utils.js");
@@ -58,8 +58,8 @@ describe("Shplonk test suite", function () {
             
             const [commitW, commitWp, evaluations, openingPoints, xiSeed] = await open(zkey, PTau, ctx, committedPols, curve);
     
-            committedPols.W1 = { commit: commitW };
-            committedPols.W2 = { commit: commitWp };
+            committedPols.W = { commit: commitW };
+            committedPols.Wp = { commit: commitWp };
     
             const isValid = await verifyOpenings(zkey, committedPols, evaluations, curve);
             assert(isValid);
@@ -70,13 +70,7 @@ describe("Shplonk test suite", function () {
 
             await exportCalldata(`tmp/${tmpName}/shplonk_calldata.txt`, zkey, committedPols, evaluations, curve);
     
-            for(let i = 0; i < zkey.f.length; ++i) {
-                if(zkey.f[i].stages.length === 1 && zkey.f[i].stages[0].stage === 0) {
-                    zkey[`f${zkey.f[i].index}`] = curve.G1.toObject(committedPols[`f${zkey.f[i].index}_0`].commit);
-                }
-            }
-    
-            await exportSolidityVerifier(`tmp/${tmpName}/shplonk_verifier.sol`, zkey, curve);
+            await exportSolidityVerifier(`tmp/${tmpName}/shplonk_verifier.sol`, zkey, committedPols, curve);
     }
 
     describe("Testing shplonk using setup by stage",() => {
@@ -116,7 +110,7 @@ describe("Shplonk test suite", function () {
                     ]
                 ], 
                 "extraMuls": [0,0,0,0],
-                "split": 'stage',
+                "openBy": 'stage',
             };
     
             await shPlonkTest(config, ptauFilename, "test1");
@@ -156,7 +150,7 @@ describe("Shplonk test suite", function () {
                     ]
                 ], 
                 "extraMuls": [4,2,1,0],
-                "split": 'stage',
+                "openBy": 'stage',
             };
     
             await shPlonkTest(config, ptauFilename, "test2");
@@ -188,7 +182,7 @@ describe("Shplonk test suite", function () {
                     ], 
                 ], 
                 "extraMuls": [0, 0, 0],
-                "split": 'openingPoints',
+                "openBy": 'openingPoints',
             };
 
             await shPlonkTest(config, ptauFilename, "test3");
@@ -218,7 +212,7 @@ describe("Shplonk test suite", function () {
                     ],  
                 ], 
                 "extraMuls": [3,1,2],
-                "split": 'openingPoints',
+                "openBy": 'openingPoints',
             };
     
             await shPlonkTest(config, ptauFilename, "test4");

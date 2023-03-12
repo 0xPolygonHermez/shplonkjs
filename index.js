@@ -1,5 +1,5 @@
 module.exports.exportCalldata = require("./src/solidity/exportCalldata.js").exportCalldata;
-module.exports.exportSolidityVerifier = require("./src/solidity/exportVerifier.js").exportSolidityVerifier;
+module.exports.exportSolidityVerifier = require("./src/solidity/exportSolidityVerifier.js").exportSolidityVerifier;
 module.exports.setup = require("./src/index.js").setup;
 module.exports.commit = require("./src/index.js").commit;
 module.exports.open = require("./src/index.js").open;

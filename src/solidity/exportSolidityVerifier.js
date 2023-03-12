@@ -1,32 +1,20 @@
-/*
-    Copyright 2021 0KIMS association.
-
-    This file is part of snarkJS.
-
-    snarkJS is a free software: you can redistribute it and/or modify it
-    under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    snarkJS is distributed in the hope that it will be useful, but WITHOUT
-    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-    or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
-    License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with snarkJS. If not, see <https://www.gnu.org/licenses/>.
-*/
-
 const ejs = require("ejs");
 const {utils} = require("ffjavascript");
 const { getOrderedEvals } = require("../helpers/helpers.js");
 const path = require("path");
 const fs = require("fs");
 
-module.exports.exportSolidityVerifier = async function exportSolidityVerifier(fileName, vk, curve, logger) {
+module.exports.exportSolidityVerifier = async function exportSolidityVerifier(fileName, vk, committedPols, curve, logger) {
     if (logger) logger.info("FFLONK EXPORT SOLIDITY VERIFIER STARTED");
 
-    const f = vk.f;
+    for(let i = 0; i < vk.f.length; ++i) {
+        if(vk.f[i].stages.length === 1 && vk.f[i].stages[0].stage === 0) {
+            vk[`f${vk.f[i].index}`] = curve.G1.toObject(committedPols[`f${vk.f[i].index}_0`].commit);
+        }
+    }
+
+    // Sort f by index
+    vk.f.sort((a, b) => a - b);
 
     //Precompute omegas
     const omegas = Object.keys(vk).filter(n => n.startsWith(("w")));
@@ -44,20 +32,19 @@ module.exports.exportSolidityVerifier = async function exportSolidityVerifier(fi
         }
     }
 
-    let fiDegrees = [...new Set(f.map(fi => fi.pols.length))];
+    let fiWPowers = [...new Set(vk.f.map(fi => fi.pols.length))];
 
-    fiDegrees = fiDegrees.map(fi => {return {degree: fi, wPower: vk.powerW / fi}; }).sort((a, b) => a.wPower >= b.wPower ? 1 : -1);
+    fiWPowers = fiWPowers.map(fi => {return {degree: fi, wPower: vk.powerW / fi}; }).sort((a, b) => a.wPower >= b.wPower ? 1 : -1);
 
     vk.X_2 = curve.G2.toObject(vk.X_2);
 
-    const orderedEvals = getOrderedEvals(f);
+    const orderedEvals = getOrderedEvals(vk.f);
     orderedEvals.push({name: "inv"});
     const obj = {
         vk,
         orderedEvals: orderedEvals.map(e => e.name),
         ws,
-        f: f.sort((a, b) => a.index >= b.index ? 1 : -1), 
-        fiDegrees: fiDegrees,
+        fiWPowers,
     };
     if (logger) logger.info("FFLONK EXPORT SOLIDITY VERIFIER FINISHED");
 

@@ -1,12 +1,12 @@
 const Polynomial = require("../polynomial/polynomial.js");
 const { Scalar } = require("ffjavascript");
 
+/**
+ *  Compute the coefficients of Ri(X) from evaluations using lagrange interpolation. R0(X) ∈ F_{<N}[X]
+ *  We decide to use Lagrange interpolations because the Ri degree is very small,
+ *  and we were not able to compute it using current ifft implementation because the omega are different
+ */
 async function computeRi(f, roots, curve, logger) {
-    // COMPUTE Ri
-    // Compute the coefficients of Ri(X) from evaluations using lagrange interpolation. R0(X) ∈ F_{<N}[X]
-    // We decide to use Lagrange interpolations because the Ri degree is very small,
-    // and we were not able to compute it using current ifft implementation because the omega are different
-
     const rootsRi = roots.flat();
     const evals = [];
     rootsRi.forEach(r => {
@@ -22,6 +22,9 @@ async function computeRi(f, roots, curve, logger) {
     return ri;  
 }
 
+/**
+ * 
+ */
 exports.computeR = async function computeR(f, roots, curve, logger) {
     const fPols = f.map(fi => fi.pol);
     const promises = [];
@@ -34,20 +37,23 @@ exports.computeR = async function computeR(f, roots, curve, logger) {
     return r;
 }
 
-exports.calculateEvaluations = function calculateEvaluations(pk, ctx, xiSeed, curve, logger) {
+/**
+ * 
+ */
+exports.calculateEvaluations = function calculateEvaluations(pk, polynomials, xiSeed, curve, logger) {
     // Calculate the array of opening points
     const openingPoints = []; 
 
     // Firstly, calculate challenge xi, which will be xiSeed ^ lcm(f)
-    let challengesXi = curve.Fr.exp(xiSeed, pk.powerW);
-    openingPoints.push(challengesXi);
+    let challengeXi = curve.Fr.exp(xiSeed, pk.powerW);
+    openingPoints.push(challengeXi);
 
     // Calculate all the subsequent opening points zw, zw²... and add it to opening points
-    let challengesXiw = challengesXi;
+    let challengeXiw = challengeXi;
 
     for(let i = 1; i < pk.nOpeningPoints; ++i) {
-        challengesXiw = curve.Fr.mul(challengesXiw, curve.Fr.exp(curve.Fr.nqr, Scalar.div(Scalar.sub(curve.Fr.p, 1), Scalar.e(2**pk.power))));
-        openingPoints.push(challengesXiw);
+        challengeXiw = curve.Fr.mul(challengeXiw, curve.Fr.exp(curve.Fr.nqr, Scalar.div(Scalar.sub(curve.Fr.p, 1), Scalar.e(2**pk.power))));
+        openingPoints.push(challengeXiw);
     }
         
     // Calculate evaluations
@@ -60,10 +66,10 @@ exports.calculateEvaluations = function calculateEvaluations(pk, ctx, xiSeed, cu
                 const polName = pk.f[i].pols[k];
 
                 // The polynomial must be committed previously in order to be opened
-                if(!ctx[polName]) throw new Error(`Polynomial ${polName} is not committed`);
+                if(!polynomials[polName]) throw new Error(`Polynomial ${polName} is not committed`);
 
                 // Store the evaluations in an object
-                evaluations[polName + wPower] = ctx[polName].evaluate(openingPoints[openingIndex]);
+                evaluations[polName + wPower] = polynomials[polName].evaluate(openingPoints[openingIndex]);
             }
         }
     }
@@ -71,7 +77,10 @@ exports.calculateEvaluations = function calculateEvaluations(pk, ctx, xiSeed, cu
     return {evaluations, openingPoints};
 }
 
-exports.computeW = function computeW(f, r, roots, challengesAlpha, openingPoints, curve, logger) {
+/**
+ * 
+ */
+exports.computeW = function computeW(f, r, roots, challengeAlpha, openingPoints, curve, logger) {
     if (logger) logger.info("> Computing W polynomial");
 
     const fPols = f.map(fi => fi.pol);
@@ -82,7 +91,7 @@ exports.computeW = function computeW(f, r, roots, challengesAlpha, openingPoints
         let fi = Polynomial.fromPolynomial(fPols[i], curve, logger); 
         fi.sub(r[i]);
         fi.mulScalar(challenge);
-        challenge = curve.Fr.mul(challenge, challengesAlpha);
+        challenge = curve.Fr.mul(challenge, challengeAlpha);
     
         for(let k = 0; k < f[i].openingPoints.length; k++) {
             const nRoots = roots[i][k].length;
@@ -111,7 +120,10 @@ exports.computeW = function computeW(f, r, roots, challengesAlpha, openingPoints
     return W;
 }
 
-function computeL(F, ZT, f, r, roots, challengesY, challengesAlpha, toInverse, curve, logger) {
+/**
+ * 
+ */
+function computeL(F, f, r, roots, challengeY, challengeAlpha, toInverse, curve, logger) {
     if (logger) logger.info("··· Computing L polynomial");
 
     const fPols = f.map(fi => fi.pol);
@@ -122,7 +134,7 @@ function computeL(F, ZT, f, r, roots, challengesY, challengesAlpha, toInverse, c
         const rootsRi = roots[i].flat();
         let mulLi = curve.Fr.one;
         for (let j = 0; j < rootsRi.length; j++) {
-            mulLi = curve.Fr.mul(mulLi, curve.Fr.sub(challengesY, rootsRi[j]));
+            mulLi = curve.Fr.mul(mulLi, curve.Fr.sub(challengeY, rootsRi[j]));
         }
         mulL.push(mulLi);
         if(i >= 1) toInverse.push(mulLi);
@@ -133,7 +145,7 @@ function computeL(F, ZT, f, r, roots, challengesY, challengesAlpha, toInverse, c
     let challenge = curve.Fr.one;
     for(let i = 0; i < mulL.length; i++) {
         preL[i] = challenge;
-        challenge = curve.Fr.mul(challenge, challengesAlpha);
+        challenge = curve.Fr.mul(challenge, challengeAlpha);
         for(let j = 0; j < mulL.length; j++) {
             if(j !== i) {
                 preL[i] = curve.Fr.mul(preL[i], mulL[j]);
@@ -143,7 +155,7 @@ function computeL(F, ZT, f, r, roots, challengesY, challengesAlpha, toInverse, c
     
     // COMPUTE F(X)
     const evalRiY = [];
-    r.forEach(ri => evalRiY.push(ri.evaluate(challengesY)));
+    r.forEach(ri => evalRiY.push(ri.evaluate(challengeY)));
 
     let L;
     for(let i = 0; i < fPols.length; i++) {
@@ -158,7 +170,8 @@ function computeL(F, ZT, f, r, roots, challengesY, challengesAlpha, toInverse, c
         }
     }
 
-    const evalZTY = ZT.evaluate(challengesY);
+    const ZT = Polynomial.zerofierPolynomial(roots.flat(Infinity), curve);
+    const evalZTY = ZT.evaluate(challengeY);
     F.mulScalar(evalZTY);
     L.sub(F);
 
@@ -171,50 +184,22 @@ function computeL(F, ZT, f, r, roots, challengesY, challengesAlpha, toInverse, c
 }
 
 
-function computeZT(roots, curve, logger) {
-    if (logger) logger.info("> Computing ZT polynomial");
-    const sRoots = roots.flat(Infinity);
-    return Polynomial.zerofierPolynomial(sRoots, curve);
-}
-
-function computeZTS2(roots, curve, logger) {
-    if (logger) logger.info("> Computing ZTS2 polynomial");
-    
-    const sRoots = [];
-    for(let i = 1; i < roots.length; ++i) {
-        sRoots.push(...roots[i].flat(Infinity));
-    }
-    
-    return Polynomial.zerofierPolynomial(sRoots, curve);
-}
-
-exports.computeWp = function computeWp(f, r, roots, W, challengesY, challengesAlpha, toInverse, curve, logger) {
-
-    // 0 - Compute ZT
-    const ZT = computeZT(roots, curve, logger);
+exports.computeWp = function computeWp(f, r, roots, W, challengeY, challengeAlpha, toInverse, curve, logger) {
 
     // 1 - Compute L
-    const L = computeL(W, ZT, f, r, roots, challengesY, challengesAlpha, toInverse, curve, logger);
+    const L = computeL(W, f, r, roots, challengeY, challengeAlpha, toInverse, curve, logger);
 
     // 2 - Compute ZTS2
-    const ZTS2 = computeZTS2(roots, curve, logger);
+    const ZTS2 = Polynomial.zerofierPolynomial(roots.slice(1).flat(Infinity), curve);
 
     // 3 - Compute W'= L/ZTS2
-    let ZTS2Y = ZTS2.evaluate(challengesY);
+    let ZTS2Y = ZTS2.evaluate(challengeY);
     ZTS2Y = curve.Fr.inv(ZTS2Y);
     L.mulScalar(ZTS2Y);
-    
-    const polDividend = Polynomial.fromCoefficientsArray([curve.Fr.neg(challengesY), curve.Fr.one], curve);
-    const polRemainder = L.divBy(polDividend);
+    L.divByXSubValue(challengeY);
 
-    //Check polReminder degree is equal to zero
-    if (polRemainder.degree() > 0) {
-        throw new Error(`Degree of L(X)/(ZTS2(y)(X-y)) remainder is ${polRemainder.degree()} and should be 0`);
-    }
-
-    const maxFiDegree = Math.max(...f.map(fi => fi.degree));
-
-    if(L.degree() > maxFiDegree - 1) {
+    const maxFiDegree = Math.max(...f.map(fi => fi.degree)) - 1;
+    if(L.degree() > maxFiDegree) {
         throw new Error("Degree of Wp(X) is wrong");
     }
 

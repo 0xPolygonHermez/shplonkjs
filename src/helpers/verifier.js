@@ -24,7 +24,7 @@ function computeRi(f, evals, roots, challengeY, curve, logger) {
         throw new Error(`R Polynomial is not well calculated. Ri has degree ${ri.degree()} while max degree is ${(n*nPols - 1)}`);
     }
 
-    // Evaluate the polynomial in challenges.y
+    // Evaluate the polynomial in challenge Y
     if (logger) logger.info("··· Computing evaluation r1(y)");
     const evalRi = ri.evaluate(challengeY);  
     
@@ -101,11 +101,12 @@ exports.computeE = function computeE(r, quotients, curve, logger) {
     return G1.timesFr(G1.one, E);
 }
 
-exports.computeJ = function computeJ(W, quotient, curve, logger) {
+
+exports.computeJ = function computeJ(W, quotient0, curve, logger) {
     if(logger) logger.info("Computing J");
     const G1 = curve.G1;
 
-    return G1.timesFr(W, quotient);
+    return G1.timesFr(W, quotient0);
 }
 
 
