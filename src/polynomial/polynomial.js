@@ -19,7 +19,7 @@
 
 const {BigBuffer} = require("ffjavascript");
 
-module.exports = class Polynomial {
+module.exports.Polynomial = class Polynomial {
     constructor(coefficients, curve, logger) {
         this.coef = coefficients;
         this.curve = curve;

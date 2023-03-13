@@ -4,7 +4,7 @@ const { keccak256 } = require("js-sha3");
 const POLYNOMIAL = 0;
 const SCALAR = 1;
 
-module.exports = class Keccak256Transcript {
+module.exports.Keccak256Transcript = class Keccak256Transcript {
     constructor(curve) {
         this.G1 = curve.G1;
         this.Fr = curve.Fr;

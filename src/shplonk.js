@@ -3,7 +3,7 @@ const { calculateEvaluations, computeR, computeW, computeWp, getMontgomeryBatche
 const { calculateQuotients, computeE, computeF, computeJ, computeRVerifier, isValidPairing } = require("./helpers/verifier.js");
 const { lcm } = require("./utils.js");
 const { computeRootWi, computeWi, getFByStage, getFByOpeningPoints, getPowersOfTau } = require("./helpers/setup.js");
-const CPolynomial = require("./polynomial/cpolynomial.js");
+const {CPolynomial} = require("./polynomial/cpolynomial.js");
 
 module.exports.setup = async function setup(config, curve, ptauFilename, logger) {
     
@@ -89,7 +89,7 @@ module.exports.commit = async function commit(stage, pk, polynomials, PTau, curv
 
             // Check that each polynomial is provided and have the degree specified in the config
             if(!polynomials[cPols[j].name]) throw new Error(`Polynomial ${cPols[j].name} is not provided`);
-            if(polynomials[cPols[j].name].degree() !== cPols[j].degree) {
+            if(polynomials[cPols[j].name].degree() > cPols[j].degree) {
                 throw new Error(`Polynomial ${cPols[j].name} degree (${polynomials[cPols[j].name].degree()}) doesn't match with the one specified in the config (${cPols[j].degree})`); 
             }
             // Get the position in the composed polynomial of the current pol and add it.

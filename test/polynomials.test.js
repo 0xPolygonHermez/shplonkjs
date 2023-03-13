@@ -1,6 +1,6 @@
 const {BigBuffer, getCurveFromName} = require("ffjavascript");
-const Polynomial = require("../src/polynomial/polynomial.js");
-const CPolynomial = require("../src/polynomial/cpolynomial.js");
+const {Polynomial} = require("../src/polynomial/polynomial.js");
+const {CPolynomial} = require("../src/polynomial/cpolynomial.js");
 const assert = require("assert");
 const path = require("path");
 const {log2} = require("../src/utils.js");

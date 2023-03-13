@@ -24,10 +24,10 @@
 
 const {BigBuffer} = require("ffjavascript");
 const {log2} = require("../utils.js");
-const Polynomial = require("./polynomial.js");
+const {Polynomial} = require("./polynomial.js");
 
 
-module.exports = class CPolynomial {
+module.exports.CPolynomial = class CPolynomial {
     constructor(n, curve, logger) {
         this.n = n;
         this.polynomials = Array(n).fill(undefined);

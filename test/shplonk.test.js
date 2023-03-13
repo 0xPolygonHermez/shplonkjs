@@ -1,7 +1,7 @@
 const {BigBuffer, getCurveFromName} = require("ffjavascript");
 const path = require("path");
-const Polynomial = require("../src/polynomial/polynomial.js");
-const { commit, open, setup, verifyOpenings } = require("../src/index.js");
+const {Polynomial} = require("../src/polynomial/polynomial.js");
+const { commit, open, setup, verifyOpenings } = require("../src/shplonk.js");
 const {exportCalldata} = require("../src/solidity/exportCalldata.js");
 const {exportSolidityVerifier} = require("../src/solidity/exportSolidityVerifier.js");
 const assert = require("assert");

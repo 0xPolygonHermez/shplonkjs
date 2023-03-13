@@ -1,6 +1,6 @@
 const {BigBuffer} = require("ffjavascript");
-const Keccak256Transcript = require("../Keccak256Transcript.js");
-const Polynomial = require("../polynomial/polynomial.js");
+const {Keccak256Transcript} = require("../Keccak256Transcript.js");
+const {Polynomial} = require("../polynomial/polynomial.js");
 const {log2} = require("../utils.js");
 
 /**
@@ -209,7 +209,7 @@ exports.addCommitsF = function addCommitsF(f, committedPols, addPols, curve, log
         f[i].commit = module.exports.sumCommits(commits, curve, logger);
         if(addPols) {
             f[i].pol = module.exports.sumPolynomials(pols, curve, logger); 
-            if(f[i].degree !== f[i].pol.degree()) throw new Error(`f${i} degree (${f[i].pol.degree()}) does not match with the configuration (${f[i].degree})`)
+            if(f[i].degree > f[i].pol.degree()) throw new Error(`f${i} degree (${f[i].pol.degree()}) does not match with the configuration (${f[i].degree})`)
         }
     }
 }

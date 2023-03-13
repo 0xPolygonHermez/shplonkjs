@@ -1,4 +1,4 @@
-const Polynomial = require("../polynomial/polynomial.js");
+const {Polynomial} = require("../polynomial/polynomial.js");
 const { Scalar } = require("ffjavascript");
 
 /**
