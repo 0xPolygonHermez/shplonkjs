@@ -50,27 +50,24 @@ describe("Shplonk test suite", function () {
             const nStages = Math.max(...config.polDefs.flat().map(p => p.stage)) + 1;
 
             for(let i = 0; i < nStages; ++i) {
-                const commits = await commit(i, zkey, ctx, PTau, curve);        
-                for(let j = 0; j < commits.length; ++j) {
-                    committedPols[`f${commits[j].index}`] = {commit: commits[j].commit, pol: commits[j].pol}
+                const commitsStage = await commit(i, zkey, ctx, PTau, curve);        
+                for(let j = 0; j < commitsStage.length; ++j) {
+                    committedPols[`f${commitsStage[j].index}`] = {commit: commitsStage[j].commit, pol: commitsStage[j].pol}
                 }
             }
             
-            const [commitW, commitWp, evaluations, openingPoints, xiSeed] = await open(zkey, PTau, ctx, committedPols, curve);
+            const [commits, evaluations, xiSeed] = await open(zkey, PTau, ctx, committedPols, curve);
     
-            committedPols.W = { commit: commitW };
-            committedPols.Wp = { commit: commitWp };
-    
-            const isValid = await verifyOpenings(zkey, committedPols, evaluations, curve);
+            const isValid = await verifyOpenings(zkey, commits, evaluations, curve);
             assert(isValid);
     
             if (!fs.existsSync(`./tmp/${tmpName}`)){
                 fs.mkdirSync(`./tmp/${tmpName}`, { recursive: true });
             }
 
-            await exportCalldata(`tmp/${tmpName}/shplonk_calldata.txt`, zkey, committedPols, evaluations, curve);
+            await exportCalldata(`tmp/${tmpName}/shplonk_calldata.txt`, zkey, commits, evaluations, curve);
     
-            await exportSolidityVerifier(`tmp/${tmpName}/shplonk_verifier.sol`, zkey, committedPols, curve);
+            await exportSolidityVerifier(`tmp/${tmpName}/shplonk_verifier.sol`, zkey, commits, curve);
     }
 
     describe("Testing shplonk using setup by stage",() => {
@@ -167,11 +164,11 @@ describe("Shplonk test suite", function () {
                     [
                         {"name": "P0", "stage": 0, "degree": 32},
                         {"name": "P1", "stage": 0, "degree": 32},
-                        {"name": "P2", "stage": 1, "degree": 33},
-                        {"name": "P4", "stage": 2, "degree": 65},
+                        {"name": "P2", "stage": 0, "degree": 33},
+                        {"name": "P4", "stage": 0, "degree": 65},
                     ],
                     [
-                        {"name": "P4", "stage": 2, "degree": 65},
+                        {"name": "P3", "stage": 1, "degree": 65},
                         {"name": "P5", "stage": 2, "degree": 33},
                         {"name": "P6", "stage": 2, "degree": 101}
                     ],
@@ -196,8 +193,12 @@ describe("Shplonk test suite", function () {
                 "polDefs": [
                     [
                         {"name": "P1", "stage": 0, "degree": 32},
-                        {"name": "P2", "stage": 0, "degree": 32},
+                        {"name": "P2", "stage": 0, "degree": 27},
+                        {"name": "PZ", "stage": 0, "degree": 45},
+                        {"name": "PT", "stage": 0, "degree": 33},
                         {"name": "P3", "stage": 1, "degree": 33},
+                        {"name": "PL", "stage": 1, "degree": 33},
+                        {"name": "PK", "stage": 2, "degree": 33},
                         {"name": "P4", "stage": 2, "degree": 34},
                     ],
                     [
@@ -211,7 +212,7 @@ describe("Shplonk test suite", function () {
                         {"name": "P6", "stage": 2, "degree": 101}
                     ],  
                 ], 
-                "extraMuls": [3,1,2],
+                "extraMuls": [5,1,2],
                 "openBy": 'openingPoints',
             };
     

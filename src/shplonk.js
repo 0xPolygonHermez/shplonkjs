@@ -131,6 +131,11 @@ module.exports.open = async function open(pk, PTau, polynomials, committedPols, 
     // Store all the committed polynomials and its commits to its corresponding fi
     addCommitsF(pk.f, committedPols, true, curve);
 
+    const commits = {};
+    for(let i = 0; i < pk.f.length; ++i) {
+        commits[`f${pk.f[i].index}`] = pk.f[i].commit;
+    }
+
     // Calculate the xiSeed from all the committed polynomials
     const xiSeed = computeChallengeXiSeed(pk.f, curve);
 
@@ -152,6 +157,7 @@ module.exports.open = async function open(pk, PTau, polynomials, committedPols, 
     // Calculate W
     const W = computeW(pk.f, r, roots, challengeAlpha, openingPoints, curve, logger);
     const commitW = await W.multiExponentiation(PTau);
+    commits.W = commitW;
 
     // Calculate challenge Y from W commit
     const challengeY = computeChallengeY(commitW, challengeAlpha, curve, logger);
@@ -162,22 +168,26 @@ module.exports.open = async function open(pk, PTau, polynomials, committedPols, 
     // Calculate Wp
     const Wp = computeWp(pk.f, r, roots, W, challengeY, challengeAlpha, toInverse, curve, logger);
     const commitWp = await Wp.multiExponentiation(PTau);
-    
+    commits.Wp = commitWp;
+
     // Add the montgomery batched inverse, which is used to calculate the inverses in 
     // the Solidity verifier, to the evaluations
     evaluations.inv = getMontgomeryBatchedInverse(roots, toInverse, curve, logger);
 
     // Return W, Wp, the polynomials evaluations, the xiSeed and the opening points
-    return [commitW, commitWp, evaluations, openingPoints, xiSeed];
+    return [commits, evaluations, xiSeed];
 }
 
-module.exports.verifyOpenings = async function verifyOpenings(vk, committedPols, evaluations, curve, logger) {
+module.exports.verifyOpenings = async function verifyOpenings(vk, commits, evaluations, curve, logger) {
     
     // Sort f by index
     vk.f.sort((a, b) => a - b);
 
     // Store the polynomial commits to its corresponding fi
-    addCommitsF(vk.f, committedPols, false, curve);
+    for(let i = 0; i < vk.f.length; ++i) {
+        if(!commits[`f${vk.f[i].index}`]) throw new Error(`f${vk.f[i].index} commit is missing`);
+        vk.f[i].commit = commits[`f${vk.f[i].index}`];
+    }
 
     // Calculate the xiSeed from all the committed polynomials
     const xiSeed = computeChallengeXiSeed(vk.f, curve);
@@ -192,7 +202,7 @@ module.exports.verifyOpenings = async function verifyOpenings(vk, committedPols,
     const roots = calculateRoots(vk, xiSeed, curve, logger);
 
     // Calculate challenge Y from W commit
-    const challengeY = computeChallengeY(committedPols.W.commit, challengeAlpha, curve, logger);
+    const challengeY = computeChallengeY(commits.W, challengeAlpha, curve, logger);
     
     // Calculate the evaluation of each ri at challengeY
     const r = computeRVerifier(vk.f, orderedEvals, roots, challengeY, curve, logger);
@@ -209,10 +219,10 @@ module.exports.verifyOpenings = async function verifyOpenings(vk, committedPols,
     const E = computeE(r, quotients, curve, logger);
 
     // Calculate J
-    const J = computeJ(committedPols.W.commit, quotients[0], curve, logger);
+    const J = computeJ(commits.W, quotients[0], curve, logger);
 
     // Check that the pairing is valid
-    const res = await isValidPairing(vk, committedPols.Wp.commit, challengeY, F, E, J, curve, logger);
+    const res = await isValidPairing(vk, commits.Wp, challengeY, F, E, J, curve, logger);
 
     if (logger) {
         if (res) {

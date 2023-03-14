@@ -4,12 +4,13 @@ const { getOrderedEvals } = require("../helpers/helpers.js");
 const path = require("path");
 const fs = require("fs");
 
-module.exports.exportSolidityVerifier = async function exportSolidityVerifier(fileName, vk, committedPols, curve, logger) {
+module.exports.exportSolidityVerifier = async function exportSolidityVerifier(fileName, vk, commits, curve, logger) {
     if (logger) logger.info("FFLONK EXPORT SOLIDITY VERIFIER STARTED");
 
     for(let i = 0; i < vk.f.length; ++i) {
         if(vk.f[i].stages.length === 1 && vk.f[i].stages[0].stage === 0) {
-            vk[`f${vk.f[i].index}`] = curve.G1.toObject(committedPols[`f${vk.f[i].index}_0`].commit);
+            if(!commits[`f${vk.f[i].index}`]) throw new Error(`f${vk.f[i].index} commit is missing`);
+            vk[`f${vk.f[i].index}`] = curve.G1.toObject(commits[`f${vk.f[i].index}`]);
         }
     }
 
