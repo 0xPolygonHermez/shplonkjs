@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.7.0 <0.9.0;
 
 contract ShPlonkVerifier {
@@ -170,6 +171,22 @@ contract ShPlonkVerifier {
                 }
             }
 
+            function checkPointBelongsToBN128Curve(p) {
+                let x := mload(p)
+                let y := mload(add(p, 32))
+
+                // Check that the point is on the curve
+                // y^2 = x^3 + 3
+                let x3_3 := addmod(mulmod(x, mulmod(x, x, qf), qf), 3, qf)
+                let y2 := mulmod(y, y, qf)
+
+                if iszero(eq(x3_3, y2)) {
+                    mstore(0, 0)
+                    return(0, 0x20)
+                }
+            }  
+            
+            
             // Validate all the evaluations sent by the prover ∈ F
             function checkInput(pProof) {
                 if iszero(eq(mload(pProof), <%- (vk.f.filter(fi => fi.stages.length !== 1 || fi.stages[0].stage !== 0).length + 2) * 64 + orderedEvals.length * 32 %>)) {
@@ -177,6 +194,15 @@ contract ShPlonkVerifier {
                     return(0,0x20)
                 }
                 
+                // Check proof commitments fullfill bn128 curve equation Y^2 = X^3 + 3
+                checkPointBelongsToBN128Curve(add(pProof, pW))
+                checkPointBelongsToBN128Curve(add(pProof, pWp))
+<% for(let i = 0; i < vk.f.length; ++i) { -%>
+<%      if(vk.f[i].stages.length !== 1 || vk.f[i].stages[0].stage !== 0) { -%>
+                checkPointBelongsToBN128Curve(add(pProof, pf<%- vk.f[i].index %>))
+<% } -%>
+<% } -%>
+
 <% for(let i = 0; i < orderedEvals.length; ++i) { -%>
                 checkField(mload(add(pProof, pEval_<%- orderedEvals[i] %>)))
 <% } -%>

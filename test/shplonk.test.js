@@ -1,5 +1,6 @@
 const {BigBuffer, getCurveFromName} = require("ffjavascript");
 const path = require("path");
+const {expect} = require("chai");
 const {Polynomial} = require("../src/polynomial/polynomial.js");
 const { commit, open, setup, verifyOpenings } = require("../src/shplonk.js");
 const {exportCalldata} = require("../src/solidity/exportCalldata.js");
@@ -7,6 +8,7 @@ const {exportSolidityVerifier} = require("../src/solidity/exportSolidityVerifier
 const assert = require("assert");
 const fs = require("fs");
 const {log2} = require("../src/utils.js");
+const {ethers, run} = require("hardhat");
 
 describe("Shplonk test suite", function () {
     this.timeout(1000000000);
@@ -61,14 +63,27 @@ describe("Shplonk test suite", function () {
             const isValid = await verifyOpenings(zkey, commits, evaluations, curve);
             assert(isValid);
     
-            if (!fs.existsSync(`./tmp/${tmpName}`)){
-                fs.mkdirSync(`./tmp/${tmpName}`, { recursive: true });
+            if (!fs.existsSync(`./tmp/calldata`)){
+                fs.mkdirSync(`./tmp/calldata`, {recursive: true});
             }
 
-            await exportCalldata(`tmp/${tmpName}/shplonk_calldata.txt`, zkey, commits, evaluations, curve);
+            if (!fs.existsSync(`./tmp/contracts`)){
+                fs.mkdirSync(`./tmp/contracts`, {recursive: true});
+            }
+
+            const proof = await exportCalldata(`tmp/calldata/shplonk_calldata_${tmpName}.txt`, zkey, commits, evaluations, curve);
+            
+            await exportSolidityVerifier(`tmp/contracts/shplonk_verifier_${tmpName}.sol`, zkey, commits, curve);
     
-            await exportSolidityVerifier(`tmp/${tmpName}/shplonk_verifier.sol`, zkey, commits, curve);
-    }
+            await run("compile");
+
+            const ShPlonkVerifier = await ethers.getContractFactory(`tmp/contracts/shplonk_verifier_${tmpName}.sol:ShPlonkVerifier`);
+            const shPlonkVerifier = await ShPlonkVerifier.deploy();
+
+            await shPlonkVerifier.deployed();
+
+            expect(await shPlonkVerifier.verifyProof(proof)).to.equal(true);
+        }
 
     describe("Testing shplonk using setup by stage",() => {
         it("shplonk full basic test with no scalar multiplications", async () => {

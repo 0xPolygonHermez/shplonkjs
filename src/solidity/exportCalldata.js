@@ -54,5 +54,5 @@ module.exports.exportCalldata = async function exportCalldata(fileName, vk, comm
     
     fs.writeFileSync(fileName, proofHex, "utf-8");
 
-    return;
+    return proofHex;
 }

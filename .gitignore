@@ -3,3 +3,14 @@ node_modules
 dist
 package-lock.json
 tmp/*
+
+.env
+coverage
+coverage.json
+typechain
+typechain-types
+
+# Hardhat files
+cache
+artifacts
+
