@@ -52,4 +52,17 @@ exports.calculateSplits = function f(res, sum, N, n, lastDivisorIndex, divisors,
     return;
 }
 
+exports.calculateSumCombinations = function f(res, lengths, sum, N, i, possibleCombinations) {
+    if(i === lengths.length) {
+        if(sum == N) possibleCombinations.push(res);
+        return;
+    }
+
+    for(let j = 0; j < lengths[i].length; ++j) {
+        const partialSum = sum + lengths[i][j];
+        if(partialSum <= N) {
+            f([...res, lengths[i][j]], lengths, partialSum, N, i + 1, possibleCombinations);
+        }
+    }
+}
 

@@ -128,7 +128,7 @@ describe("Shplonk test suite", function () {
             await shPlonkTest(config, ptauFilename, "test1");
         });
     
-        it("shplonk full test with scalar multiplications", async () => {
+        it("shplonk full test with scalar multiplications specified by stage", async () => {
             const ptauFilename = path.join("test", "powersOfTau15_final.ptau");
     
             const config = {
@@ -167,6 +167,46 @@ describe("Shplonk test suite", function () {
     
             await shPlonkTest(config, ptauFilename, "test2");
         });
+
+        it("shplonk full test with scalar multiplications specified by total number", async () => {
+            const ptauFilename = path.join("test", "powersOfTau15_final.ptau");
+    
+            const config = {
+                "power": 7,
+                "polDefs": [
+                    [
+                        {"name": "QL", "stage": 0, "degree": 32},
+                        {"name": "QR", "stage": 0, "degree": 32},
+                        {"name": "QO", "stage": 0, "degree": 32},
+                        {"name": "QM", "stage": 0, "degree": 32},
+                        {"name": "QC", "stage": 0, "degree": 32},
+                        {"name": "Sigma1", "stage": 0, "degree": 32},
+                        {"name": "Sigma2", "stage": 0, "degree": 32},
+                        {"name": "Sigma3", "stage": 0, "degree": 32},
+                        {"name": "A", "stage": 1, "degree": 33},
+                        {"name": "B", "stage": 1, "degree": 33},
+                        {"name": "C", "stage": 1, "degree": 33},
+                        {"name": "T0", "stage": 1, "degree": 65},
+                        {"name": "Z",  "stage": 2, "degree": 34},
+                        {"name": "T1", "stage": 2, "degree": 33},
+                        {"name": "T2", "stage": 2, "degree": 101}
+                    ],
+                    [
+                        {"name": "Z",  "stage": 2, "degree": 34},
+                        {"name": "T1", "stage": 2, "degree": 33},
+                        {"name": "T2", "stage": 2, "degree": 101}
+                    ],
+                    [
+                        {"name": "T3", "stage": 3, "degree": 34},
+                        {"name": "T4", "stage": 3,  "degree": 33},
+                    ]
+                ], 
+                "extraMuls": 7,
+                "openBy": 'stage',
+            };
+    
+            await shPlonkTest(config, ptauFilename, "test3");
+        });
     });
 
     describe("Testing shplonk using setup by opening points",() => {
@@ -197,10 +237,10 @@ describe("Shplonk test suite", function () {
                 "openBy": 'openingPoints',
             };
 
-            await shPlonkTest(config, ptauFilename, "test3");
+            await shPlonkTest(config, ptauFilename, "test4");
         });
 
-        it("shplonk full basic test with scalar multiplications", async () => {
+        it("shplonk full basic test with scalar multiplications specified by opening points", async () => {
             const ptauFilename = path.join("test", "powersOfTau15_final.ptau");
     
             const config = {
@@ -231,7 +271,41 @@ describe("Shplonk test suite", function () {
                 "openBy": 'openingPoints',
             };
     
-            await shPlonkTest(config, ptauFilename, "test4");
+            await shPlonkTest(config, ptauFilename, "test5");
+        });
+
+        it("shplonk full basic test with scalar multiplications specified by total number", async () => {
+            const ptauFilename = path.join("test", "powersOfTau15_final.ptau");
+    
+            const config = {
+                "power": 5,
+                "polDefs": [
+                    [
+                        {"name": "P1", "stage": 0, "degree": 32},
+                        {"name": "P2", "stage": 0, "degree": 27},
+                        {"name": "PZ", "stage": 0, "degree": 45},
+                        {"name": "PT", "stage": 0, "degree": 33},
+                        {"name": "P3", "stage": 1, "degree": 33},
+                        {"name": "PL", "stage": 1, "degree": 33},
+                        {"name": "PK", "stage": 2, "degree": 33},
+                        {"name": "P4", "stage": 2, "degree": 34},
+                    ],
+                    [
+                        {"name": "P4", "stage": 2, "degree": 34},
+                        {"name": "P5", "stage": 2, "degree": 33},
+                        {"name": "P6", "stage": 2, "degree": 101}
+                    ],  
+                    [
+                        {"name": "P4", "stage": 2, "degree": 34},
+                        {"name": "P5", "stage": 2, "degree": 33},
+                        {"name": "P6", "stage": 2, "degree": 101}
+                    ],  
+                ], 
+                "extraMuls": 8,
+                "openBy": 'openingPoints',
+            };
+    
+            await shPlonkTest(config, ptauFilename, "test6");
         });
     });
 

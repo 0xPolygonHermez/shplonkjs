@@ -1,6 +1,6 @@
 const { Scalar, BigBuffer, getCurveFromQ } = require("ffjavascript");
 const { readBinFile } = require("@iden3/binfileutils");
-const { getDivisors, calculateSplits } = require("../utils.js");
+const { getDivisors, calculateSplits, calculateSumCombinations } = require("../utils.js");
 
 function calculateDegree(polsLength, pols) {
     let count = 0;
@@ -44,24 +44,42 @@ function calculatePolsLength(pols, n, divisors) {
     return splitPol;
 }
 
-function calculateMultiplePolsLength(pols1, pols2, n, curve) {
-    let maxDegree;
-    let splitPol = [];
+function calculateMultiplePolsLength(pols, n, curve) {
     const order = Scalar.sub(curve.Fr.p, 1);
-    const divisors1 = getDivisors(order, pols1.length);
-    const divisors2 = getDivisors(order, pols2.length);
-    for(let i = 0; i <= n; ++i) {
-        const split1 = calculatePolsLength(pols1, i + 1, divisors1);
-        const split2 = calculatePolsLength(pols2, n - i, divisors2);
-        if(split1.length > 0 && split2.length > 0) {
-            const deg1 = calculateDegree(split1.map(s => s.length), pols1);
-            const deg2 = calculateDegree(split2.map(s => s.length), pols2);
-            const deg = Math.max(deg1, deg2);
-            if(!maxDegree || deg < maxDegree) {
-                maxDegree = deg;
-                splitPol = [...split1, ...split2];
+    const divisors = pols.map(p => getDivisors(order, p.length));
+    const possibleSplits = {};
+    for(let j = 0; j <= n - pols.length; ++j) {
+        for(let i = 0; i < pols.length; ++i) {
+            const split = calculatePolsLength(pols[i], j + 1, divisors[i]);
+            if(split.length > 0) {
+                if(!possibleSplits[i]) possibleSplits[i] = {};
+                possibleSplits[i][j] = split;
             }
-        }   
+        }
+    }   
+
+    const lengths = [];
+    for(let j = 0; j < pols.length; ++j) {
+        if(!possibleSplits[j]) throw new Error("Invalid configuration");
+        lengths.push(Object.keys(possibleSplits[j]).map(k => Number(k)));
+    }
+
+    let possibleCombinations = [];
+    calculateSumCombinations([], lengths, 0, n - pols.length, 0, possibleCombinations)
+
+    let maxDegree;
+    let splitPol;
+    for(let i = 0; i < possibleCombinations.length; ++i) {
+        const split = possibleCombinations[i].map((c, index) => calculatePolsLength(pols[index], c + 1, divisors[index]));
+        const degs = split.map((s, index) => calculateDegree(s.map(si => si.length), pols[index]));
+        const finalDeg = Math.max(...degs);
+        if(!maxDegree || finalDeg < maxDegree) {
+            maxDegree = finalDeg;
+            splitPol = [];
+            for(let j = 0; j < split.length; ++j) {
+                splitPol = [...splitPol, ...split[j]];
+            }
+        }
     }
 
     return splitPol;
@@ -72,7 +90,6 @@ exports.getFByStage = function getFByStage(config, curve) {
     let index = 0;
 
     const nStages = Math.max(...config.polDefs.flat().map(p => p.stage)) + 1;
-    if(nStages !== config.extraMuls.length) throw new Error(`There are ${nStages} stages but ${config.extraMuls.length} extra muls were provided`);
     const polsStages = [];
     for(let i = 0; i < nStages; ++i) {
         let openingPoints = [];
@@ -112,18 +129,26 @@ exports.getFByStage = function getFByStage(config, curve) {
     }
 
     let splittedPols = [];
-    for(let k = 0; k < polsStages.length; ++k) {
-        const nPols = 1 + config.extraMuls[k];
-        if(nPols > polsStages[k].length) throw new Error(`There are ${polsStages[k].length} polynomials defined in stage ${i} but you are trying to split them in ${nPols}, which is not allowed`);
-    
-        const order = Scalar.sub(curve.Fr.p, 1);
-        const divisors = getDivisors(order, polsStages[k].length);
+    if(Array.isArray(config.extraMuls)) {
+        for(let k = 0; k < polsStages.length; ++k) {
+            const nPols = 1 + config.extraMuls[k];
+            if(nPols > polsStages[k].length) throw new Error(`There are ${polsStages[k].length} polynomials defined in stage ${i} but you are trying to split them in ${nPols}, which is not allowed`);
+        
+            const order = Scalar.sub(curve.Fr.p, 1);
+            const divisors = getDivisors(order, polsStages[k].length);
 
-        const splitPols = calculatePolsLength(polsStages[k], nPols, divisors);
-        if(splitPols.length === 0) throw new Error(`It does not exist any way to split ${polsStages[k].length} in ${nPols} different pols`);
+            const splitPols = calculatePolsLength(polsStages[k], nPols, divisors);
+            if(splitPols.length === 0) throw new Error(`It does not exist any way to split ${polsStages[k].length} in ${nPols} different pols`);
 
-        splittedPols.push(...splitPols);
+            splittedPols.push(...splitPols);
+        } 
+    } else {
+        const totalPols = config.extraMuls + nStages; 
+        if(totalPols > polsStages.flat(Infinity).length) throw new Error(`There are ${polsStages.flat(Infinity).length} pols but ${totalPols} extra muls were asked`);
+        splittedPols = calculateMultiplePolsLength(polsStages, totalPols, curve);
     }
+   
+    
 
     // Define the composed polinomial f with all the polinomials provided
     for(let k = 0; k < splittedPols.length; ++k) {
@@ -146,8 +171,6 @@ exports.getFByOpeningPoints = function getFByOpeningPoints(config, curve) {
     let index = 0;
 
     const nOpeningPoints = config.polDefs.length;
-    if(nOpeningPoints !== config.extraMuls.length) throw new Error(`There are ${nOpeningPoints} stages but ${config.extraMuls.length} extra muls were provided`);
-
     const polsOpeningPoints = [];
     for(let i = 0; i < nOpeningPoints; ++i) {  
         let pols = config.polDefs[i];      
@@ -164,29 +187,50 @@ exports.getFByOpeningPoints = function getFByOpeningPoints(config, curve) {
     }
 
     let splittedPols = [];
-    for(let k = 0; k < polsOpeningPoints.length; ++k) {
-        const nPols = 1 + config.extraMuls[k];
-        if(nPols > polsOpeningPoints[k].length) throw new Error(`There are ${polsOpeningPoints[k].length} polynomials defined in ${i}th opening point but you are trying to split them in ${nPols}, which is not allowed`);
-        
-        let splitPols;
-        if(polsOpeningPoints[k].find(p => p.stage === 0) && nPols > 1) {
-            const polsStage0 = polsOpeningPoints[k].filter(p => p.stage === 0);
-            const otherPols = polsOpeningPoints[k].filter(p => p.stage !== 0);
+    if(Array.isArray(config.extraMuls)) {
+        for(let k = 0; k < polsOpeningPoints.length; ++k) {
+            const nPols = 1 + config.extraMuls[k];
+            if(nPols > polsOpeningPoints[k].length) throw new Error(`There are ${polsOpeningPoints[k].length} polynomials defined in ${i}th opening point but you are trying to split them in ${nPols}, which is not allowed`);
             
-            splitPols = calculateMultiplePolsLength(polsStage0, otherPols, nPols - 1, curve);
+            let splitPols;
+            if(polsOpeningPoints[k].find(p => p.stage === 0) && nPols > 1) {
+                const polsStage0 = polsOpeningPoints[k].filter(p => p.stage === 0);
+                const otherPols = polsOpeningPoints[k].filter(p => p.stage !== 0);
+                
+                splitPols = calculateMultiplePolsLength([polsStage0, otherPols], nPols, curve);
 
-        } else {
-            const order = Scalar.sub(curve.Fr.p, 1);
-            const divisors = getDivisors(order, polsOpeningPoints[k].length);
+            } else {
+                const order = Scalar.sub(curve.Fr.p, 1);
+                const divisors = getDivisors(order, polsOpeningPoints[k].length);
 
-            splitPols = calculatePolsLength(polsOpeningPoints[k], nPols, divisors);
+                splitPols = calculatePolsLength(polsOpeningPoints[k], nPols, divisors);
+            }
+
+            if(splitPols.length === 0) throw new Error(`It does not exist any way to split ${polsOpeningPoints[k].length} in ${nPols} different pols`);
+
+            splittedPols.push(...splitPols);
+        } 
+    } else {
+        let totalPols = config.extraMuls + nOpeningPoints;
+        const pols = [];
+        let splits = 0;
+        for(let k = 0; k < polsOpeningPoints.length; ++k) {
+            if(polsOpeningPoints[k].find(p => p.stage === 0) && totalPols - splits > nOpeningPoints) {
+                const polsStage0 = polsOpeningPoints[k].filter(p => p.stage === 0);
+                const otherPols = polsOpeningPoints[k].filter(p => p.stage !== 0);
+
+                pols.push(polsStage0);
+                pols.push(otherPols);
+                splits++;
+            } else {
+                pols.push(polsOpeningPoints[k]);
+            }
         }
 
-        if(splitPols.length === 0) throw new Error(`It does not exist any way to split ${polsOpeningPoints[k].length} in ${nPols} different pols`);
-
-        splittedPols.push(...splitPols);
+        if(totalPols > pols.flat(Infinity).length) throw new Error(`There are ${pols.flat(Infinity).length} pols but ${totalPols} extra muls were asked`);
+        splittedPols = calculateMultiplePolsLength(pols, totalPols, curve);
     }
-
+    
     // Define the composed polinomial f with all the polinomials provided
     for(let k = 0; k < splittedPols.length; ++k) {
         const p = splittedPols[k];
