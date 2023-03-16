@@ -4,6 +4,7 @@ module.exports.setup = require("./src/shplonk.js").setup;
 module.exports.commit = require("./src/shplonk.js").commit;
 module.exports.open = require("./src/shplonk.js").open;
 module.exports.verifyOpenings = require("./src/shplonk.js").verifyOpenings;
+module.exports.getPowersOfTau = require("./src/helpers/setup.js").getPowersOfTau;
 module.exports.computeChallengeXiSeed = require("./src/helpers/helpers.js").computeChallengeXiSeed;
 module.exports.computeChallengeAlpha = require("./src/helpers/helpers.js").computeChallengeAlpha;
 module.exports.computeChallengeY = require("./src/helpers/helpers.js").computeChallengeY;

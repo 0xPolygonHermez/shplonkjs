@@ -49,10 +49,9 @@ describe("Shplonk test suite", function () {
     
             const committedPols = {};
     
-            const nStages = Math.max(...config.polDefs.flat().map(p => p.stage)) + 1;
-
-            for(let i = 0; i < nStages; ++i) {
-                const commitsStage = await commit(i, zkey, ctx, PTau, curve);        
+            const stages = [...new Set(config.polDefs.flat().map(p => p.stage))];
+            for(let i = 0; i < stages.length; ++i) {
+                const commitsStage = await commit(stages[i], zkey, ctx, PTau, curve);        
                 for(let j = 0; j < commitsStage.length; ++j) {
                     committedPols[`f${commitsStage[j].index}`] = {commit: commitsStage[j].commit, pol: commitsStage[j].pol}
                 }
@@ -105,20 +104,20 @@ describe("Shplonk test suite", function () {
                         {"name": "B", "stage": 1, "degree": 33},
                         {"name": "C", "stage": 1, "degree": 33},
                         {"name": "T0", "stage": 1, "degree": 65},
-                        {"name": "Z",  "stage": 2, "degree": 34},
-                        {"name": "T1", "stage": 2, "degree": 33},
-                        {"name": "T2", "stage": 2, "degree": 101}
+                        {"name": "Z",  "stage": 3, "degree": 34},
+                        {"name": "T1", "stage": 3, "degree": 33},
+                        {"name": "T2", "stage": 3, "degree": 101}
                     ],
                     [
-                        {"name": "Z",  "stage": 2, "degree": 34},
-                        {"name": "T1", "stage": 2, "degree": 33},
-                        {"name": "T2", "stage": 2, "degree": 101}
+                        {"name": "Z",  "stage": 3, "degree": 34},
+                        {"name": "T1", "stage": 3, "degree": 33},
+                        {"name": "T2", "stage": 3, "degree": 101}
                     ],
                     [
-                        {"name": "T4", "stage": 3, "degree": 33},
-                        {"name": "T3", "stage": 3, "degree": 101},
-                        {"name": "T5", "stage": 3, "degree": 257},
-                        {"name": "T6", "stage": 3, "degree": 256}
+                        {"name": "T4", "stage": 4, "degree": 33},
+                        {"name": "T3", "stage": 4, "degree": 101},
+                        {"name": "T5", "stage": 4, "degree": 257},
+                        {"name": "T6", "stage": 4, "degree": 256}
                     ]
                 ], 
                 "extraMuls": [0,0,0,0],
@@ -217,10 +216,10 @@ describe("Shplonk test suite", function () {
                 "power": 10,
                 "polDefs": [
                     [
-                        {"name": "P0", "stage": 0, "degree": 32},
-                        {"name": "P1", "stage": 0, "degree": 32},
-                        {"name": "P2", "stage": 0, "degree": 33},
-                        {"name": "P4", "stage": 0, "degree": 65},
+                        {"name": "P0", "stage": 1, "degree": 32},
+                        {"name": "P1", "stage": 1, "degree": 32},
+                        {"name": "P2", "stage": 1, "degree": 33},
+                        {"name": "P4", "stage": 2, "degree": 65},
                     ],
                     [
                         {"name": "P3", "stage": 1, "degree": 65},
@@ -228,9 +227,9 @@ describe("Shplonk test suite", function () {
                         {"name": "P6", "stage": 2, "degree": 101}
                     ],
                     [
-                        {"name": "Z",  "stage": 2, "degree": 34},
-                        {"name": "T1", "stage": 2, "degree": 33},
-                        {"name": "T2", "stage": 2, "degree": 101}
+                        {"name": "Z",  "stage": 3, "degree": 34},
+                        {"name": "T1", "stage": 3, "degree": 33},
+                        {"name": "T2", "stage": 3, "degree": 101}
                     ], 
                 ], 
                 "extraMuls": [0, 0, 0],

@@ -60,7 +60,7 @@ function calculateMultiplePolsLength(pols, n, curve) {
 
     const lengths = [];
     for(let j = 0; j < pols.length; ++j) {
-        if(!possibleSplits[j]) throw new Error("Invalid configuration");
+        if(!possibleSplits[j]) throw new Error("Invalid configuration. Some of the composed polynomials do not have any valid split");
         lengths.push(Object.keys(possibleSplits[j]).map(k => Number(k)));
     }
 
@@ -89,13 +89,13 @@ exports.getFByStage = function getFByStage(config, curve) {
     let f = [];
     let index = 0;
 
-    const nStages = Math.max(...config.polDefs.flat().map(p => p.stage)) + 1;
+    const stages = [...new Set(config.polDefs.flat().map(p => p.stage))];
     const polsStages = [];
-    for(let i = 0; i < nStages; ++i) {
+    for(let i = 0; i < stages.length; ++i) {
         let openingPoints = [];
         let polsStage = [];
         for(let j = 0; j < config.polDefs.length; ++j) {
-            const polynomials = config.polDefs[j].filter(p => p.stage === i);
+            const polynomials = config.polDefs[j].filter(p => p.stage === stages[i]);
             const names = polynomials.map(p => p.name);
             if((new Set(names)).size !== names.length) throw new Error(`Some polynomials are duplicated in the same stage`);
             polsStage.push(...polynomials);
@@ -116,8 +116,10 @@ exports.getFByStage = function getFByStage(config, curve) {
             ++checkPols[polsStage[k].name];
         }
 
-        if(!Object.values(checkPols).every(count => count === Object.values(checkPols)[0]))  throw new Error("Invalid configuration.");
-        if(pols.length * openingPoints.length !== polsStage.length) throw new Error("Invalid configuration.");
+        if(!Object.values(checkPols).every(count => count === Object.values(checkPols)[0]) 
+            || pols.length * openingPoints.length !== polsStage.length) {
+                throw new Error("Invalid configuration");
+            }  
 
         pols = pols.sort((a,b) => a.degree <= b.degree ? 1 : -1);
         
@@ -143,7 +145,7 @@ exports.getFByStage = function getFByStage(config, curve) {
             splittedPols.push(...splitPols);
         } 
     } else {
-        const totalPols = config.extraMuls + nStages; 
+        const totalPols = config.extraMuls + stages.length; 
         if(totalPols > polsStages.flat(Infinity).length) throw new Error(`There are ${polsStages.flat(Infinity).length} pols but ${totalPols} extra muls were asked`);
         splittedPols = calculateMultiplePolsLength(polsStages, totalPols, curve);
     }
@@ -186,6 +188,8 @@ exports.getFByOpeningPoints = function getFByOpeningPoints(config, curve) {
         polsOpeningPoints.push(pols);
     }
 
+    const order = Scalar.sub(curve.Fr.p, 1);
+
     let splittedPols = [];
     if(Array.isArray(config.extraMuls)) {
         for(let k = 0; k < polsOpeningPoints.length; ++k) {
@@ -193,16 +197,20 @@ exports.getFByOpeningPoints = function getFByOpeningPoints(config, curve) {
             if(nPols > polsOpeningPoints[k].length) throw new Error(`There are ${polsOpeningPoints[k].length} polynomials defined in ${i}th opening point but you are trying to split them in ${nPols}, which is not allowed`);
             
             let splitPols;
-            if(polsOpeningPoints[k].find(p => p.stage === 0) && nPols > 1) {
+            if(polsOpeningPoints[k].find(p => p.stage === 0) && polsOpeningPoints[k].filter(p => p.stage !== 0).length > 0) {
+                if(nPols === 0) throw new Error(`At least one extra scalar multiplication is required to isolate stage 0 polynomials for ${i}th opening point`);
                 const polsStage0 = polsOpeningPoints[k].filter(p => p.stage === 0);
                 const otherPols = polsOpeningPoints[k].filter(p => p.stage !== 0);
                 
+                let extraMulsRequired = 1;
+                if(Scalar.neq(Scalar.mod(order, polsStage0.length), 0n)) extraMulsRequired += 1;
+                if(Scalar.neq(Scalar.mod(order, otherPols.length), 0n)) extraMulsRequired += 1;
+
+                if(nPols < extraMulsRequired) throw new Error(`At least ${extraMulsRequired} extra multiplication are needed`);  
                 splitPols = calculateMultiplePolsLength([polsStage0, otherPols], nPols, curve);
 
             } else {
-                const order = Scalar.sub(curve.Fr.p, 1);
                 const divisors = getDivisors(order, polsOpeningPoints[k].length);
-
                 splitPols = calculatePolsLength(polsOpeningPoints[k], nPols, divisors);
             }
 
@@ -213,21 +221,25 @@ exports.getFByOpeningPoints = function getFByOpeningPoints(config, curve) {
     } else {
         let totalPols = config.extraMuls + nOpeningPoints;
         const pols = [];
-        let splits = 0;
+        let extraMuls = config.extraMuls;
         for(let k = 0; k < polsOpeningPoints.length; ++k) {
-            if(polsOpeningPoints[k].find(p => p.stage === 0) && totalPols - splits > nOpeningPoints) {
+            if(polsOpeningPoints[k].find(p => p.stage === 0) && polsOpeningPoints[k].filter(p => p.stage !== 0).length > 0) {
                 const polsStage0 = polsOpeningPoints[k].filter(p => p.stage === 0);
                 const otherPols = polsOpeningPoints[k].filter(p => p.stage !== 0);
 
                 pols.push(polsStage0);
                 pols.push(otherPols);
-                splits++;
+                extraMuls -= 1;
+                if(Scalar.neq(Scalar.mod(order, polsStage0.length), 0n)) extraMuls -= 1;
+                if(Scalar.neq(Scalar.mod(order, otherPols.length),0n)) extraMuls -= 1;
             } else {
+                if(Scalar.neq(Scalar.mod(order, polsOpeningPoints[k].length), 0n)) extraMuls -= 1;
                 pols.push(polsOpeningPoints[k]);
             }
+            if(extraMuls < 0) throw new Error(`Not enough extra scalar multiplications were provided`);
         }
 
-        if(totalPols > pols.flat(Infinity).length) throw new Error(`There are ${pols.flat(Infinity).length} pols but ${totalPols} extra muls were asked`);
+        if(totalPols > pols.flat(Infinity).length) throw new Error(`Extra muls (${totalPols}) can not be higher than the total number of pols (${pols.flat(Infinity).length})`);
         splittedPols = calculateMultiplePolsLength(pols, totalPols, curve);
     }
     
