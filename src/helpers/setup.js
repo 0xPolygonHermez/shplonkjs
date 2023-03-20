@@ -44,8 +44,8 @@ function calculatePolsLength(pols, n, divisors) {
     return splitPol;
 }
 
-function calculateMultiplePolsLength(pols, n, curve) {
-    const order = Scalar.sub(curve.Fr.p, 1);
+function calculateMultiplePolsLength(pols, n) {
+    const order = 21888242871839275222246405745257275088548364400416034343698204186575808495616n;
     const divisors = pols.map(p => getDivisors(order, p.length));
     const possibleSplits = {};
     for(let j = 0; j <= n - pols.length; ++j) {
@@ -85,7 +85,7 @@ function calculateMultiplePolsLength(pols, n, curve) {
     return splitPol;
 }
 
-exports.getFByStage = function getFByStage(config, curve) {
+exports.getFByStage = function getFByStage(config) {
     let f = [];
     let index = 0;
 
@@ -136,7 +136,7 @@ exports.getFByStage = function getFByStage(config, curve) {
             const nPols = 1 + config.extraMuls[k];
             if(nPols > polsStages[k].length) throw new Error(`There are ${polsStages[k].length} polynomials defined in stage ${i} but you are trying to split them in ${nPols}, which is not allowed`);
         
-            const order = Scalar.sub(curve.Fr.p, 1);
+            const order = 21888242871839275222246405745257275088548364400416034343698204186575808495616n;
             const divisors = getDivisors(order, polsStages[k].length);
 
             const splitPols = calculatePolsLength(polsStages[k], nPols, divisors);
@@ -147,7 +147,7 @@ exports.getFByStage = function getFByStage(config, curve) {
     } else {
         const totalPols = config.extraMuls + stages.length; 
         if(totalPols > polsStages.flat(Infinity).length) throw new Error(`There are ${polsStages.flat(Infinity).length} pols but ${totalPols} extra muls were asked`);
-        splittedPols = calculateMultiplePolsLength(polsStages, totalPols, curve);
+        splittedPols = calculateMultiplePolsLength(polsStages, totalPols);
     }
    
     
@@ -168,7 +168,7 @@ exports.getFByStage = function getFByStage(config, curve) {
     return f;
 }
 
-exports.getFByOpeningPoints = function getFByOpeningPoints(config, curve) {
+exports.getFByOpeningPoints = function getFByOpeningPoints(config) {
     let f = [];
     let index = 0;
 
@@ -188,7 +188,7 @@ exports.getFByOpeningPoints = function getFByOpeningPoints(config, curve) {
         polsOpeningPoints.push(pols);
     }
 
-    const order = Scalar.sub(curve.Fr.p, 1);
+    const order = 21888242871839275222246405745257275088548364400416034343698204186575808495616n;
 
     let splittedPols = [];
     if(Array.isArray(config.extraMuls)) {
@@ -207,7 +207,7 @@ exports.getFByOpeningPoints = function getFByOpeningPoints(config, curve) {
                 if(Scalar.neq(Scalar.mod(order, otherPols.length), 0n)) extraMulsRequired += 1;
 
                 if(nPols < extraMulsRequired) throw new Error(`At least ${extraMulsRequired} extra multiplication are needed`);  
-                splitPols = calculateMultiplePolsLength([polsStage0, otherPols], nPols, curve);
+                splitPols = calculateMultiplePolsLength([polsStage0, otherPols], nPols);
 
             } else {
                 const divisors = getDivisors(order, polsOpeningPoints[k].length);
@@ -240,7 +240,7 @@ exports.getFByOpeningPoints = function getFByOpeningPoints(config, curve) {
         }
 
         if(totalPols > pols.flat(Infinity).length) throw new Error(`Extra muls (${totalPols}) can not be higher than the total number of pols (${pols.flat(Infinity).length})`);
-        splittedPols = calculateMultiplePolsLength(pols, totalPols, curve);
+        splittedPols = calculateMultiplePolsLength(pols, totalPols);
     }
     
     // Define the composed polinomial f with all the polinomials provided
@@ -289,7 +289,7 @@ async function readPTauHeader(fd, sections) {
     return {curve, power, ceremonyPower};
 }
 
-exports.getPowersOfTau = async function getPowersOfTau(f, ptauFilename, power, curve, logger) {
+exports.getPowersOfTau = async function getPowersOfTau(f, ptauFilename, power, logger) {
         
     if(!ptauFilename) throw new Error(`Powers of Tau filename is not provided.`);
     
@@ -301,8 +301,7 @@ exports.getPowersOfTau = async function getPowersOfTau(f, ptauFilename, power, c
 
     // Get curve defined in PTau
     if (logger) logger.info("> Getting curve from PTau settings");
-    const {curve: curvePTau} = await readPTauHeader(fdPTau, pTauSections);
-    if(curve !== curvePTau) throw new Error("Invalid curve");
+    const {curve} = await readPTauHeader(fdPTau, pTauSections);
 
     const sG1 = curve.G1.F.n8 * 2;
     const sG2 = curve.G2.F.n8 * 2;
@@ -326,7 +325,7 @@ exports.getPowersOfTau = async function getPowersOfTau(f, ptauFilename, power, c
 
     await fdPTau.close();
 
-    return {PTau, X_2};
+    return {PTau, X_2, curve};
 }
 
 exports.computeWi = function computeWi(k, curve, logger) {

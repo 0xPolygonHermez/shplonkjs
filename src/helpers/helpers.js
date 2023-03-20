@@ -197,19 +197,19 @@ exports.addCommitsF = function addCommitsF(f, committedPols, addPols, curve, log
         const commits = [];
         const pols = [];
         for(let j = 0; j < f[i].stages.length; ++j) {
-            const index = `${f[i].index}_${f[i].stages[j].stage}`;
-            if(!committedPols[`f${index}`]) throw new Error(`f${index} not found`); 
-            if(!committedPols[`f${index}`].commit) throw new Error(`f${index} commit is missing`);
+            const index = `f${f[i].index}_${f[i].stages[j].stage}`;
+            if(!committedPols[`${index}`]) throw new Error(`${index} not found`); 
+            if(!committedPols[`${index}`].commit) throw new Error(`${index} commit is missing`);
             if(addPols) {
-                if(!committedPols[`f${index}`].pol) throw new Error(`f${index} polynomial is missing`);
-                pols.push(committedPols[`f${index}`].pol);
+                if(!committedPols[`${index}`].pol) throw new Error(`${index} polynomial is missing`);
+                pols.push(committedPols[`${index}`].pol);
             }
-            commits.push(committedPols[`f${index}`].commit);
+            commits.push(committedPols[`${index}`].commit);
         }
         f[i].commit = module.exports.sumCommits(commits, curve, logger);
         if(addPols) {
             f[i].pol = module.exports.sumPolynomials(pols, curve, logger); 
-            if(f[i].degree > f[i].pol.degree()) throw new Error(`f${i} degree (${f[i].pol.degree()}) does not match with the configuration (${f[i].degree})`)
+            if(f[i].pol.degree() > f[i].degree) throw new Error(`f${i} degree (${f[i].pol.degree()}) does not match with the configuration (${f[i].degree})`)
         }
     }
 }

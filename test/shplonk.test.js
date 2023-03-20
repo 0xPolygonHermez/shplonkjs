@@ -13,76 +13,66 @@ const {ethers, run} = require("hardhat");
 describe("Shplonk test suite", function () {
     this.timeout(1000000000);
 
-    let curve;
-
-    before(async () => {
-        curve = await getCurveFromName("bn128");
-    });
-
-    after(async () => {
-        await curve.terminate();
-    });
-
     async function shPlonkTest(config, ptauFilename, tmpName = "test") {
-        const {zkey, PTau} = await setup(config, curve, ptauFilename);
+        const {zkey, PTau, curve} = await setup(config, ptauFilename);
     
-            const sFr = curve.Fr.n8;    
-    
-            const pols = [];
-            for(let i = 0; i < config.polDefs.length; ++i) {
-                for(let j = 0; j < config.polDefs[i].length; ++j) {
-                    if(!pols.find(p => p.name === config.polDefs[i][j].name)) {
-                        pols.push(config.polDefs[i][j]);
-                    }
+        const sFr = curve.Fr.n8;    
+
+        const pols = [];
+        for(let i = 0; i < config.polDefs.length; ++i) {
+            for(let j = 0; j < config.polDefs[i].length; ++j) {
+                if(!pols.find(p => p.name === config.polDefs[i][j].name)) {
+                    pols.push(config.polDefs[i][j]);
                 }
             }
-    
-            const ctx = {};
-            let c = 100;
-            for(let i = 0; i < pols.length; ++i) {
-                const lengthBuffer = 2 ** (log2(pols[i].degree) + 1);
-                ctx[pols[i].name] = new Polynomial(new BigBuffer(lengthBuffer * sFr), curve);
-                for(let j = 0; j <= pols[i].degree; ++j) {
-                    ctx[pols[i].name].setCoef(j, curve.Fr.e(c++));
-                }
-            }
-    
-            const committedPols = {};
-    
-            const stages = [...new Set(config.polDefs.flat().map(p => p.stage))];
-            for(let i = 0; i < stages.length; ++i) {
-                const commitsStage = await commit(stages[i], zkey, ctx, PTau, curve);        
-                for(let j = 0; j < commitsStage.length; ++j) {
-                    committedPols[`f${commitsStage[j].index}`] = {commit: commitsStage[j].commit, pol: commitsStage[j].pol}
-                }
-            }
-            
-            const [commits, evaluations, xiSeed] = await open(zkey, PTau, ctx, committedPols, curve);
-    
-            const isValid = await verifyOpenings(zkey, commits, evaluations, curve);
-            assert(isValid);
-    
-            if (!fs.existsSync(`./tmp/calldata`)){
-                fs.mkdirSync(`./tmp/calldata`, {recursive: true});
-            }
-
-            if (!fs.existsSync(`./tmp/contracts`)){
-                fs.mkdirSync(`./tmp/contracts`, {recursive: true});
-            }
-
-            const proof = await exportCalldata(`tmp/calldata/shplonk_calldata_${tmpName}.txt`, zkey, commits, evaluations, curve);
-            
-            await exportSolidityVerifier(`tmp/contracts/shplonk_verifier_${tmpName}.sol`, zkey, commits, curve);
-    
-            await run("compile");
-
-            const ShPlonkVerifier = await ethers.getContractFactory(`tmp/contracts/shplonk_verifier_${tmpName}.sol:ShPlonkVerifier`);
-            const shPlonkVerifier = await ShPlonkVerifier.deploy();
-
-            await shPlonkVerifier.deployed();
-
-            expect(await shPlonkVerifier.verifyProof(proof)).to.equal(true);
         }
+
+        const ctx = {};
+        let c = 100;
+        for(let i = 0; i < pols.length; ++i) {
+            const lengthBuffer = 2 ** (log2(pols[i].degree) + 1);
+            ctx[pols[i].name] = new Polynomial(new BigBuffer(lengthBuffer * sFr), curve);
+            for(let j = 0; j <= pols[i].degree; ++j) {
+                ctx[pols[i].name].setCoef(j, curve.Fr.e(c++));
+            }
+        }
+
+        const committedPols = {};
+
+        const stages = [...new Set(config.polDefs.flat().map(p => p.stage))];
+        for(let i = 0; i < stages.length; ++i) {
+            const commitsStage = await commit(stages[i], zkey, ctx, PTau, true, curve);        
+            for(let j = 0; j < commitsStage.length; ++j) {
+                committedPols[`${commitsStage[j].index}`] = {commit: commitsStage[j].commit, pol: commitsStage[j].pol}
+            }
+        }
+        
+        const [commits, evaluations, xiSeed] = await open(zkey, PTau, ctx, committedPols, curve);
+
+        const isValid = await verifyOpenings(zkey, commits, evaluations, curve);
+        assert(isValid);
+
+        if (!fs.existsSync(`./tmp/calldata`)){
+            fs.mkdirSync(`./tmp/calldata`, {recursive: true});
+        }
+
+        if (!fs.existsSync(`./tmp/contracts`)){
+            fs.mkdirSync(`./tmp/contracts`, {recursive: true});
+        }
+
+        const proof = await exportCalldata(`tmp/calldata/shplonk_calldata_${tmpName}.txt`, zkey, commits, evaluations, curve);
+        
+        await exportSolidityVerifier(`tmp/contracts/shplonk_verifier_${tmpName}.sol`, zkey, commits, curve);
+
+        await run("compile");
+
+        const ShPlonkVerifier = await ethers.getContractFactory(`tmp/contracts/shplonk_verifier_${tmpName}.sol:ShPlonkVerifier`);
+        const shPlonkVerifier = await ShPlonkVerifier.deploy();
+
+        await shPlonkVerifier.deployed();
+
+        expect(await shPlonkVerifier.verifyProof(proof)).to.equal(true);
+    }
 
     describe("Testing shplonk using setup by stage",() => {
         it("shplonk full basic test with no scalar multiplications", async () => {

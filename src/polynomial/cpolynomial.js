@@ -64,7 +64,7 @@ module.exports.CPolynomial = class CPolynomial {
             const i_sFr = i_n8 * this.n;
 
             for (let j = 0; j < this.n; j++) {
-                if (this.polynomials[j] !== undefined && this.polynomials[j].degree() > 0 && i <= this.polynomials[j].degree()) {
+                if (this.polynomials[j] !== undefined && this.polynomials[j].degree() >= 0 && i <= this.polynomials[j].degree()) {
                     polynomial.coef.set(this.polynomials[j].coef.slice(i_n8, i_n8 + sFr), i_sFr + j * sFr);
                 }
             } 

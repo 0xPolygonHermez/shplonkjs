@@ -5,13 +5,15 @@ const { lcm } = require("./utils.js");
 const { computeRootWi, computeWi, getFByStage, getFByOpeningPoints, getPowersOfTau } = require("./helpers/setup.js");
 const {CPolynomial} = require("./polynomial/cpolynomial.js");
 
-module.exports.setup = async function setup(config, curve, ptauFilename, logger) {
+module.exports.setup = async function setup(config, ptauFilename, logger) {
     
+   
+
     //fi polynomials can only be created either by stage or by opening points.
     if(!["stage", "openingPoints"].includes(config.openBy)) throw new Error(`${config.openBy} is not valid. You can only openBy polynomials by "stage" or "openingPoints".`);
     
     // Given a config, calculate the fi composed polynomials that will be used in the protocol
-    const f = config.openBy === "stage" ? getFByStage(config, curve) : getFByOpeningPoints(config, curve);
+    const f = config.openBy === "stage" ? getFByStage(config) : getFByOpeningPoints(config);
 
     // Currently, the base case in which only one fi is provided is not supported
     if(f.length === 1) throw new Error("Need to provide at least to fi.");
@@ -31,6 +33,9 @@ module.exports.setup = async function setup(config, curve, ptauFilename, logger)
         }
     }
 
+    // Calculate the Powers of Tau (checking its validity first) and store it along with X_2, which will be needed for the verifier
+    const {PTau, X_2, curve} = await getPowersOfTau(f, ptauFilename, config.power);
+
     // Compute least common multiple of the order of all the generators, which will be needed to caclulate the roots
     const powerW = lcm(Object.keys(wPowers));
     
@@ -39,6 +44,7 @@ module.exports.setup = async function setup(config, curve, ptauFilename, logger)
         power: config.power,
         nOpeningPoints: config.polDefs.length,
         f,
+        X_2,
     };
 
     // Compute each of the generators and the corresponding kth-roots and add it to the zkey
@@ -54,15 +60,11 @@ module.exports.setup = async function setup(config, curve, ptauFilename, logger)
         }
     }
 
-    // Calculate the Powers of Tau (checking its validity first) and store it along with X_2, which will be needed for the verifier
-    const {PTau, X_2} = await getPowersOfTau(f, ptauFilename, config.power, curve);
-    zkey.X_2 = X_2;
-
-    return {zkey, PTau};
+    return {zkey, PTau, curve};
 }
 
 
-module.exports.commit = async function commit(stage, pk, polynomials, PTau, curve, logger) {
+module.exports.commit = async function commit(stage, pk, polynomials, PTau, multiExp, curve, logger) {
 
     // Sort f by index
     pk.f.sort((a, b) => a - b);
@@ -100,23 +102,27 @@ module.exports.commit = async function commit(stage, pk, polynomials, PTau, curv
         // The index is composed by the ith f polynomial and the stage. It is done this way because, if polynomials corresponding
         // to fi are provided in different stages, this pols and commits will need to be added together when opening and verifying
         // and this is the easiest way to track it.
-        const index = `${fPolsToCommit[i].index}_${stage}`;
+        const index = `f${fPolsToCommit[i].index}_${stage}`;
         const pol = fPol.getPolynomial();
 
         // Check that the composed polynomial has been calculated properly
-        if(pol.degree() > fPolsToCommit[i].degree) throw new Error(`Polynomial f${fPolsToCommit[i].index} was not properly calculated`);
+        if(pol.degree() > fPolsToCommit[i].degree) throw new Error(`Polynomial ${fPolsToCommit[i].index} was not properly calculated`);
 
         pols[i] = {pol, index};
-
-        //Store the multiexponentiation evaluation in a promise array, which will be solved after the loop ends
-        promises.push(pol.multiExponentiation(PTau));
     }
 
-    const commits = await Promise.all(promises);
-
-    // Add the commits to the pols array
-    for(let i = 0; i < commits.length; ++i) {
-        pols[i].commit = commits[i];
+    if(multiExp) {
+        for(let i = 0; i < pols.length; ++i) {
+            //Store the multiexponentiation evaluation in a promise array, which will be solved after the loop ends
+            promises.push(pols[i].pol.multiExponentiation(PTau));
+        }
+    
+        const commits = await Promise.all(promises);
+    
+        // Add the commits to the pols array
+        for(let i = 0; i < commits.length; ++i) {
+            pols[i].commit = commits[i];
+        }
     }
 
     return pols;
