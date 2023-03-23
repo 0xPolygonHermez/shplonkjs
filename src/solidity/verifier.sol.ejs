@@ -348,45 +348,48 @@ contract ShPlonkVerifier {
 <%  } -%>
             }
 
-
 <%  for(let i = 0; i < vk.f.length; ++i) { -%>
 <%      if(vk.f[i].openingPoints.length === 1) { -%>
 <%  let wName = vk.f[i].openingPoints[0] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}` -%>
             function computeR<%- i %>(pMem) {
                 let res 
-                for { let i := 0 } lt(i, <%- vk.f[i].pols.length %>) { i := add(i, 1) }
-                {
+                let root
+                let acc
+                let accRoot
+                let lagrange
+<% for(let k = 0; k < vk.f[i].pols.length; ++k) { -%>
 
-                    let root := mload(add(pMem, add(pw<%- wName %>_0, mul(i, 32))))
-                    let acc := 0
-                    let accRoot := 1
+                    root := mload(add(pMem, pw<%- wName %>_<%- k %>))
+                    acc := 0
+                    accRoot := 1
+
 <%  for(let j = 0; j < vk.f[i].pols.length; ++j) { -%> 
 <%  const wPower = vk.f[i].openingPoints[0] === 0 ? '' : vk.f[i].openingPoints[0] === 1 ? 'w' : `w${vk.f[i].openingPoints[0]}` -%>
                     acc := addmod(acc, mulmod(calldataload(pEval_<%- vk.f[i].pols[j] + wPower %>), accRoot, q), q)
                     accRoot := mulmod(accRoot, root, q)
 <% } -%>
-                    let lagrange := mload(add(pMem, add(pLagrange<%- wName %>_0, mul(i, 32))))
-                    lagrange := mulmod(lagrange, mload(add(pMem, add(pLiS<%- i %>Inv_0, mul(i, 32)))), q)
+                    lagrange := mload(add(pMem, pLagrange<%- wName %>_<%- k %>))
+                    lagrange := mulmod(lagrange, mload(add(pMem, pLiS<%- i %>Inv_<%- k %>)), q)
 
                     res := addmod(res, mulmod(acc, lagrange, q), q)
                     
-                }
+<% } -%>
                 mstore(add(pMem,pR<%-i %>), res)
             }
 
 <%      } else { -%>
             function computeR<%- i %>(pMem) {
                 let res 
-                for { let i := 0 } lt(i, <%- vk.f[i].pols.length %>) { i := add(i, 1) }
-                {
-                    let root
-                    let acc
-                    let accRoot
-                    let lagrange
+                let root
+                let acc
+                let accRoot
+                let lagrange
+<% for(let l = 0; l < vk.f[i].pols.length; ++l) { -%>
+                    
 <%  let wName0 = vk.f[i].openingPoints[0] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}` -%>
 <%  for(let k = 0; k < vk.f[i].openingPoints.length; ++k) { -%>
 <%  let wName = vk.f[i].openingPoints[k] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[k]}d${vk.f[i].pols.length}` -%>
-                        root := mload(add(pMem, add(pw<%- wName %>_0, mul(i, 32))))
+                        root := mload(add(pMem, pw<%- wName %>_<%- l %>))
                         acc := 0
                         accRoot := 1
 <%  for(let j = 0; j < vk.f[i].pols.length; ++j) { -%> 
@@ -395,14 +398,14 @@ contract ShPlonkVerifier {
                         accRoot := mulmod(accRoot, root, q)
 <% } -%>
 
-<% const addition = k === 0 ? "i" : `add(i, ${k*vk.f[i].pols.length})`; -%>
+<% const addition = k === 0 ? l : l + k*vk.f[i].pols.length; -%>
                         lagrange := calcLagrangeItem(pMem, <%- addition %>, <%- vk.f[i].pols.length * vk.f[i].openingPoints.length - 1 %>, pY, pw<%- wName0 %>_0)
-                        lagrange := mulmod(lagrange, mload(add(pMem, add(pLiS<%- i %>Inv_<%- k*vk.f[i].pols.length %>, mul(i, 32)))), q)
+                        lagrange := mulmod(lagrange, mload(add(pMem, pLiS<%- i %>Inv_<%- k*vk.f[i].pols.length + l %>)), q)
 
                         res := addmod(res, mulmod(acc, lagrange, q), q)
 
 <% } -%>    
-                }   
+<% } -%>
 
                 mstore(add(pMem,pR<%-i %>), res)
             }
