@@ -72,17 +72,37 @@ contract ShPlonkVerifier {
 <% } -%>
 
     // Roots
-<%  let rcounter = 0; -%>
-<%  for(let i = 0; i < vk.f.length; i++) { -%>
-<%      for(let k = 0; k < vk.f[i].openingPoints.length; k++) { -%> 
-<%          for(let l = 0; l < vk.f[i].pols.length; l++) { -%>
-    uint16 constant pH<%- rcounter %>w<%- vk.f[i].pols.length %>_<%- l + k*vk.f[i].pols.length %> = <%- memC %>;
+<%  for(let i = 0; i < fiWPowers.length; i++) { -%>
+<%      for(let k = 0; k < fiWPowers[i].openingPoints.length; k++) { -%>
+<%          for(let l = 0; l < fiWPowers[i].degree; l++) { -%>
+<%  if(fiWPowers[i].openingPoints[k] === 0) { -%>
+    uint16 constant pw<%- fiWPowers[i].degree %>_<%- l %> = <%- memC %>;
+<%  } else { -%>
+    uint16 constant pw<%- fiWPowers[i].degree %>_<%- fiWPowers[i].openingPoints[k] %>d<%- fiWPowers[i].degree %>_<%- l %> = <%- memC %>;
+<%  } -%>
 <%              memC += 32; -%>
 <%          } -%>
 <%      } -%>
-<%      rcounter++ -%>
 <%  } -%>
 
+    // Lagrange Items
+<%  for(let i = 0; i < fiWPowers.length; i++) { -%>
+<%      for(let k = 0; k < fiWPowers[i].lagrangesRequired.length; k++) { -%>
+<%  if(fiWPowers[i].diffOpenings.filter(o => o.length === 1 && o[0] === fiWPowers[i].lagrangesRequired[k]).length > 0) { -%>
+<%          for(let l = 0; l < fiWPowers[i].degree; l++) { -%>
+<%  if(fiWPowers[i].lagrangesRequired[k] === 0) { -%>
+    uint16 constant pLagrange<%- fiWPowers[i].degree %>_<%- l %> = <%- memC %>;
+<%  } else { -%>
+    uint16 constant pLagrange<%- fiWPowers[i].degree %>_<%- fiWPowers[i].lagrangesRequired[k] %>d<%- fiWPowers[i].degree %>_<%- l %> = <%- memC %>;
+<%  } -%>
+<%              memC += 32; -%>
+<%          } -%>
+<%      } -%>
+<%      } -%>
+<%  } -%>
+    
+
+    // Ri
 <%  for(let i = 0; i < vk.f.length; ++i) { -%>
     uint16 constant pR<%- i %> = <%- memC %>; // r<%- i %>(y)
 <%      memC += 32 -%>
@@ -221,19 +241,18 @@ contract ShPlonkVerifier {
             }
 
             function computeRoots(pMem) {
-<%  rcounter = 0; -%>
                 let initValue
-<%  for(let i = 0; i < vk.f.length; ++i) { -%>
-<%          for(let k = 0; k < vk.f[i].openingPoints.length; ++k) { -%>
-<%              let val = vk.f[i].openingPoints[k] === 0 ? `mload(add(pMem, pXiSeed_w${vk.f[i].pols.length}))` : `mulmod(w${vk.f[i].pols.length}_${vk.f[i].openingPoints[k]}d${vk.f[i].pols.length}, mload(add(pMem, pXiSeed_w${vk.f[i].pols.length})),q)` -%>
+<%  for(let i = 0; i < fiWPowers.length; ++i) { -%>
+<%          for(let k = 0; k < fiWPowers[i].openingPoints.length; ++k) { -%>
+<%              let val = fiWPowers[i].openingPoints[k] === 0 ? `mload(add(pMem, pXiSeed_w${fiWPowers[i].degree}))` : `mulmod(w${fiWPowers[i].degree}_${fiWPowers[i].openingPoints[k]}d${fiWPowers[i].degree}, mload(add(pMem, pXiSeed_w${fiWPowers[i].degree})),q)` -%>
                 initValue := <%- val %>
-                mstore( add(pMem, pH<%- rcounter%>w<%- vk.f[i].pols.length %>_<%- k*vk.f[i].pols.length %>),  initValue)
-<%              for(let l = 1; l < vk.f[i].pols.length; ++l) { -%>
-                mstore( add(pMem, pH<%- rcounter%>w<%- vk.f[i].pols.length %>_<%- l + k*vk.f[i].pols.length %>), mulmod(initValue, w<%- vk.f[i].pols.length %>_<%- l %>, q))
+<%  let wName = fiWPowers[i].openingPoints[k] === 0 ? fiWPowers[i].degree : `${fiWPowers[i].degree}_${fiWPowers[i].openingPoints[k]}d${fiWPowers[i].degree}` -%>
+                mstore( add(pMem, pw<%- wName %>_0),  initValue)
+<%              for(let l = 1; l < fiWPowers[i].degree; ++l) { -%>
+                mstore( add(pMem, pw<%- wName %>_<%- l %>), mulmod(initValue, w<%- fiWPowers[i].degree %>_<%- l %>, q))
 <%              } -%>
 
 <%          } -%>
-<%          rcounter++ -%>
 <%      } -%>
             }
 
@@ -289,30 +308,63 @@ contract ShPlonkVerifier {
 <% for(let i = 1; i < vk.f.length; ++i) { -%>
                 w := 1
 <%  inversionCounter += 1; -%>
-<% for(let j = 0; j < vk.f[i].pols.length * vk.f[i].openingPoints.length; ++j) { -%>
-                w := mulmod(w, addmod(y, mod(sub(q, mload(add(pMem, pH<%- i %>w<%- vk.f[i].pols.length %>_<%- j %>))), q), q),q)
+<% for(let k = 0; k < vk.f[i].openingPoints.length; ++k) { -%>
+<% for(let j = 0; j < vk.f[i].pols.length; ++j) { -%>
+<%  let wName = vk.f[i].openingPoints[k] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[k]}d${vk.f[i].pols.length}` -%>
+                w := mulmod(w, addmod(y, mod(sub(q, mload(add(pMem, pw<%- wName %>_<%- j %>))), q), q),q)
+<% } -%>
 <% } -%>
                 mstore(add(pMem, pDenH<%- i %>), w)
 <% } -%>
 
-<% for(let i = 0; i < vk.f.length; ++i) { -%>
-<%  inversionCounter += vk.f[i].pols.length * vk.f[i].openingPoints.length; -%>
-<% for(let j = 0; j < vk.f[i].pols.length * vk.f[i].openingPoints.length; ++j) { -%>
-                mstore(add(pMem, pLiS<%- i %>Inv_<%- j %>), calcLagrangeItem(pMem, <%= j %>, <%- vk.f[i].pols.length * vk.f[i].openingPoints.length - 1 %>, pH<%-i%>w<%-vk.f[i].pols.length %>_<%- j %>, pH<%-i%>w<%-vk.f[i].pols.length %>_0))
+                let value
+<% for(let i = 0; i < fiWPowers.length; ++i) { -%>
+<% for(let l = 0; l < fiWPowers[i].diffOpenings.length; ++l) { -%>
+<%  let wName0 = fiWPowers[i].diffOpenings[l][0] === 0 ? fiWPowers[i].degree : `${fiWPowers[i].degree}_${fiWPowers[i].diffOpenings[l][0]}d${fiWPowers[i].degree}` -%>
+<% for(let k = 0; k < fiWPowers[i].diffOpenings[l].length; ++k) { -%>
+<%  let wName = fiWPowers[i].diffOpenings[l][k] === 0 ? fiWPowers[i].degree : `${fiWPowers[i].degree}_${fiWPowers[i].diffOpenings[l][k]}d${fiWPowers[i].degree}` -%>    
+<% for(let j = 0; j < fiWPowers[i].degree; ++j) { -%>
+                value := calcLagrangeItem(pMem, <%= j + k*fiWPowers[i].degree %>, <%- fiWPowers[i].degree * fiWPowers[i].diffOpenings[l].length - 1 %>, pw<%-wName %>_<%- j %>, pw<%-wName0 %>_0)
+<% let fs = vk.f.filter(fi => fi.pols.length === fiWPowers[i].degree && JSON.stringify(fiWPowers[i].diffOpenings[l]) === JSON.stringify(fi.openingPoints)).map(fi => fi.index); -%>
+<% for(let m = 0; m < fs.length; ++m) { -%>
+                mstore(add(pMem, pLiS<%- fs[m] %>Inv_<%- j + k*fiWPowers[i].degree %>), value)
+<% inversionCounter += 1; -%>
 <% } -%>
 <% } -%>
-                
+<% } -%>
+<% } -%>
+<% } -%>
                 // Execute Montgomery batched inversions of the previous prepared values
                 inverseArray(pProof, add(pMem, <%- vk.f.length > 1 ? "pDenH1" : "pLiS0Inv_0" %>), <%- inversionCounter %>)
             }
 
+            function computeLagrangeItems(pProof, pMem) {
+                let lagrange
+<%  for(let i = 0; i < fiWPowers.length; i++) { -%>
+<%  let wName0 = fiWPowers[i].lagrangesRequired[0] === 0 ? fiWPowers[i].degree : `${fiWPowers[i].degree}_${fiWPowers[i].lagrangesRequired[0]}d${fiWPowers[i].degree}` -%>
+<%      for(let k = 0; k < fiWPowers[i].lagrangesRequired.length; k++) { -%>
+<%  let wName = fiWPowers[i].lagrangesRequired[k] === 0 ? fiWPowers[i].degree : `${fiWPowers[i].degree}_${fiWPowers[i].lagrangesRequired[k]}d${fiWPowers[i].degree}` -%>
+<%  if(fiWPowers[i].diffOpenings.filter(o => o.length === 1 && o[0] === fiWPowers[i].lagrangesRequired[k]).length > 0) { -%>
+<%          for(let l = 0; l < fiWPowers[i].degree; l++) { -%>
+                lagrange := calcLagrangeItem(pMem,<%- l %>, <%- fiWPowers[i].degree - 1%>, pY, pw<%- wName %>_0)
+                mstore(add(pMem, pLagrange<%- wName %>_<%- l %>), lagrange)
+
+<%          } -%>
+<%      } -%>
+<%      } -%>
+<%  } -%>
+            }
+
+
 <%  for(let i = 0; i < vk.f.length; ++i) { -%>
 <%      if(vk.f[i].openingPoints.length === 1) { -%>
+<%  let wName = vk.f[i].openingPoints[0] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}` -%>
             function computeR<%- i %>(pProof, pMem) {
                 let res 
                 for { let i := 0 } lt(i, <%- vk.f[i].pols.length %>) { i := add(i, 1) }
                 {
-                    let root := mload(add(pMem, add(pH<%- i %>w<%- vk.f[i].pols.length %>_0, mul(i, 32))))
+
+                    let root := mload(add(pMem, add(pw<%- wName %>_0, mul(i, 32))))
                     let acc := 0
                     let accRoot := 1
 <%  for(let j = 0; j < vk.f[i].pols.length; ++j) { -%> 
@@ -320,8 +372,7 @@ contract ShPlonkVerifier {
                     acc := addmod(acc, mulmod(mload(add(pProof, pEval_<%- vk.f[i].pols[j] + wPower %>)), accRoot, q), q)
                     accRoot := mulmod(accRoot, root, q)
 <% } -%>
-
-                    let lagrange := calcLagrangeItem(pMem, i, <%- vk.f[i].pols.length - 1%>, pY, pH<%- i %>w<%- vk.f[i].pols.length %>_0)
+                    let lagrange := mload(add(pMem, add(pLagrange<%- wName %>_0, mul(i, 32))))
                     lagrange := mulmod(lagrange, mload(add(pMem, add(pLiS<%- i %>Inv_0, mul(i, 32)))), q)
 
                     res := addmod(res, mulmod(acc, lagrange, q), q)
@@ -339,9 +390,10 @@ contract ShPlonkVerifier {
                     let acc
                     let accRoot
                     let lagrange
-
+<%  let wName0 = vk.f[i].openingPoints[0] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}` -%>
 <%  for(let k = 0; k < vk.f[i].openingPoints.length; ++k) { -%>
-                        root := mload(add(pMem, add(pH<%- i %>w<%- vk.f[i].pols.length %>_<%- k*vk.f[i].pols.length %>, mul(i, 32))))
+<%  let wName = vk.f[i].openingPoints[k] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[k]}d${vk.f[i].pols.length}` -%>
+                        root := mload(add(pMem, add(pw<%- wName %>_0, mul(i, 32))))
                         acc := 0
                         accRoot := 1
 <%  for(let j = 0; j < vk.f[i].pols.length; ++j) { -%> 
@@ -351,7 +403,7 @@ contract ShPlonkVerifier {
 <% } -%>
 
 <% const addition = k === 0 ? "i" : `add(i, ${k*vk.f[i].pols.length})`; -%>
-                        lagrange := calcLagrangeItem(pMem, <%- addition %>, <%- vk.f[i].pols.length * vk.f[i].openingPoints.length - 1 %>, pY, pH<%- i %>w<%- vk.f[i].pols.length %>_0)
+                        lagrange := calcLagrangeItem(pMem, <%- addition %>, <%- vk.f[i].pols.length * vk.f[i].openingPoints.length - 1 %>, pY, pw<%- wName0 %>_0)
                         lagrange := mulmod(lagrange, mload(add(pMem, add(pLiS<%- i %>Inv_<%- k*vk.f[i].pols.length %>, mul(i, 32)))), q)
 
                         res := addmod(res, mulmod(acc, lagrange, q), q)
@@ -439,7 +491,7 @@ contract ShPlonkVerifier {
                 let y := mload(add(pMem, pY))
                 let numerator := 1
 <% for(let i = 0; i < vk.f[0].pols.length * vk.f[0].openingPoints.length; ++i) { -%>
-                numerator := mulmod(numerator, addmod(y, mod(sub(q, mload(add(pMem, pH0w<%- vk.f[0].pols.length %>_<%- i %>))), q), q), q)
+                numerator := mulmod(numerator, addmod(y, mod(sub(q, mload(add(pMem, pw<%- vk.f[0].pols.length %>_<%- i %>))), q), q), q)
 <% } -%>
                 
                 // Prepare shared quotient between F and E to reuse it
@@ -545,6 +597,9 @@ contract ShPlonkVerifier {
             //      2) Check the inverse sent by the prover it is what it should be
             //      3) Compute the others inverses using the Montgomery Batched Algorithm using the inverse sent to avoid the inversion operation it does.
             computeInversions(proof, pMem)
+
+            // Compute Lagrange Items to avoid calculating it more than once
+            computeLagrangeItems(proof, pMem)
 
 <% for(let i = 0; i < vk.f.length; ++i) { -%>
             computeR<%- i %>(proof, pMem)

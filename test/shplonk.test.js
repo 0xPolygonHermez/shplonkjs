@@ -140,7 +140,7 @@ describe("Shplonk test suite", function () {
                         {"name": "T2", "stage": 2, "degree": 95}
                     ],
                 ], 
-                "extraMuls": 1,
+                "extraMuls": 3,
                 "openBy": 'stage',
             };
     
