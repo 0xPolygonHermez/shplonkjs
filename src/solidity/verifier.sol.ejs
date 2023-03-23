@@ -38,23 +38,23 @@ contract ShPlonkVerifier {
     uint256 constant G2y1 = 8495653923123431417604973247489272438418190587263600148770280649306958101930;
     uint256 constant G2y2 = 4082367875863433681332203403145435568316851327593401208105741076214120093531;
 
-    // Proof data
-    // Byte offset of every parameter in `bytes memory proof`
+    // Proof calldata
+    // Byte offset of every parameter in the calldata
     // Polynomial commitments W and Wp
-    uint16 constant pW = 32;
-    uint16 constant pWp = 96;
+    uint16 constant pW = 4 + 0;
+    uint16 constant pWp = 4 + 64;
 
     // Polynomial commitments fi
-<%  let count = 160; -%>
+<%  let count = 128; -%>
 <%  for(let i = 0; i < vk.f.length; ++i) { -%>
 <%      if(vk.f[i].stages.length !== 1 || vk.f[i].stages[0].stage !== 0) { -%>
-    uint16 constant pf<%- vk.f[i].index %> = <%- count %>;
+    uint16 constant pf<%- vk.f[i].index %> = 4 + <%- count %>;
 <%      count += 64 -%>
 <%      } -%>
 <%  } -%>
     // Opening evaluations
 <%  for(let i = 0; i < orderedEvals.length; ++i) { -%>
-    uint16 constant pEval_<%- orderedEvals[i] %> = <%- count %>;
+    uint16 constant pEval_<%- orderedEvals[i] %> = 4 + <%- count %>;
 <% count += 32 -%>
 <%  } -%>
 
@@ -134,12 +134,12 @@ contract ShPlonkVerifier {
 <%  let pLastMem = memC -%>
     uint16 constant lastMem = <%- pLastMem %>;
 
-    function verifyProof(bytes memory proof) public view returns (bool) {
+    function verifyProof(bytes32[<%- (vk.f.filter(fi => fi.stages.length !== 1 || fi.stages[0].stage !== 0).length + 2) * 2 + orderedEvals.length %>] calldata proof) public view returns (bool) {
         assembly {
             // Computes the inverse of an array of values
             // See https://vitalik.ca/general/2018/07/21/starks_part_3.html in section where explain fields operations
             // To save the inverse to be computed on chain the prover sends the inverse as an evaluation in proof.eval_inv
-            function inverseArray(pProof, pVals, n) {
+            function inverseArray(pVals, n) {
 
                 let pAux := mload(0x40)     // Point to the next free position
                 let pIn := pVals
@@ -156,7 +156,7 @@ contract ShPlonkVerifier {
                     acc := mulmod(acc, mload(pIn), q)
                 }
 
-                let inv := mload(add(pProof, pEval_inv))
+                let inv := calldataload(pEval_inv)
 
                 // Before using the inverse sent by the prover the verifier checks inv(batch) * batch === 1
                 if iszero(eq(1, mulmod(acc, inv, q))) {
@@ -192,8 +192,8 @@ contract ShPlonkVerifier {
             }
 
             function checkPointBelongsToBN128Curve(p) {
-                let x := mload(p)
-                let y := mload(add(p, 32))
+                let x := calldataload(p)
+                let y := calldataload(add(p, 32))
 
                 // Check that the point is on the curve
                 // y^2 = x^3 + 3
@@ -208,23 +208,18 @@ contract ShPlonkVerifier {
             
             
             // Validate all the evaluations sent by the prover ∈ F
-            function checkInput(pProof) {
-                if iszero(eq(mload(pProof), <%- (vk.f.filter(fi => fi.stages.length !== 1 || fi.stages[0].stage !== 0).length + 2) * 64 + orderedEvals.length * 32 %>)) {
-                    mstore(0, 0)
-                    return(0,0x20)
-                }
-                
+            function checkInput() {        
                 // Check proof commitments fullfill bn128 curve equation Y^2 = X^3 + 3
-                checkPointBelongsToBN128Curve(add(pProof, pW))
-                checkPointBelongsToBN128Curve(add(pProof, pWp))
+                checkPointBelongsToBN128Curve(pW)
+                checkPointBelongsToBN128Curve(pWp)
 <% for(let i = 0; i < vk.f.length; ++i) { -%>
 <%      if(vk.f[i].stages.length !== 1 || vk.f[i].stages[0].stage !== 0) { -%>
-                checkPointBelongsToBN128Curve(add(pProof, pf<%- vk.f[i].index %>))
+                checkPointBelongsToBN128Curve(pf<%- vk.f[i].index %>)
 <% } -%>
 <% } -%>
 
 <% for(let i = 0; i < orderedEvals.length; ++i) { -%>
-                checkField(mload(add(pProof, pEval_<%- orderedEvals[i] %>)))
+                checkField(calldataload(pEval_<%- orderedEvals[i] %>))
 <% } -%>
             }
 
@@ -256,34 +251,32 @@ contract ShPlonkVerifier {
 <%      } -%>
             }
 
-            function computeChallenges(pProof, pMem) {
-                let mIn := mload(0x40)
+            function computeChallenges(pMem) {
                 // Compute xiSeed
 <%  for(let i = 0; i < vk.f.length; ++i) { -%>
 <%  if(vk.f[i].stages.length !== 1 || vk.f[i].stages[0].stage !== 0) { -%>
-                mstore(add(mIn,<%- i * 64 %>), mload(add(pProof, pf<%- vk.f[i].index %>)))
-                mstore(add(mIn,<%- i * 64 + 32 %>), mload(add(pProof, add(pf<%- vk.f[i].index %>, 32))))
+                mstore(add(lastMem,<%- i * 64 %>), calldataload(pf<%- vk.f[i].index %>))
+                mstore(add(lastMem,<%- i * 64 + 32 %>), calldataload(add(pf<%- vk.f[i].index %>, 32)))
 <% } else { -%>
-                mstore(add(mIn,<%- i * 64 %>), f<%- vk.f[i].index %>x)
-                mstore(add(mIn,<%- i * 64 + 32 %>), f<%- vk.f[i].index %>y)
+                mstore(add(lastMem,<%- i * 64 %>), f<%- vk.f[i].index %>x)
+                mstore(add(lastMem,<%- i * 64 + 32 %>), f<%- vk.f[i].index %>y)
 <%  } -%>
 <%  } -%>
-                mstore(add(pMem, pXiSeed), mod(keccak256(mIn, <%- vk.f.length * 64 %>), q))
+                mstore(add(pMem, pXiSeed), mod(keccak256(lastMem, <%- vk.f.length * 64 %>), q))
 
                 // Compute challenge.alpha
-<%  for(let i = 0; i < orderedEvals.length - 1; ++i) { -%>
-                mstore(add(mIn,<%- i * 32 %>), mload(add(pProof, pEval_<%- orderedEvals[i] %>)))
-<%  } -%>
-                mstore(add(mIn, <%- (orderedEvals.length - 1) * 32 %>), mload(add(pMem, pXiSeed)))
+                mstore(lastMem, mload(add(pMem,pXiSeed)))
+                calldatacopy(add(lastMem, 32), pEval_<%- orderedEvals[0] %>, <%- (orderedEvals.length - 1) * 32 %>)
 
-                mstore( add(pMem, pAlpha), mod(keccak256(mIn, <%- 32 + (orderedEvals.length - 1) * 32 %>), q))
+                let alpha := mod(keccak256(lastMem, <%- orderedEvals.length * 32 %>), q)
+                mstore( add(pMem, pAlpha), alpha)
 
-                mstore(mIn, mload(add(pMem, pAlpha)))
-                mstore(add(mIn, 32), mload(add(pProof, pW)))
-                mstore(add(mIn, 64), mload(add(pProof, add(pW, 32))))
+                mstore(lastMem, alpha)
+                mstore(add(lastMem, 32), calldataload(pW))
+                mstore(add(lastMem, 64), calldataload(add(pW, 32)))
 
                 // Compute challenge.y
-                mstore( add(pMem, pY), mod(keccak256(mIn, 96), q))
+                mstore( add(pMem, pY), mod(keccak256(lastMem, 96), q))
             }
 
             // This function computes allows as to compute (X-X1)·(X-X2)·...·(X-Xn) used in Lagrange interpolation
@@ -301,7 +294,7 @@ contract ShPlonkVerifier {
             }
 
             // Prepare all the denominators that must be inverted, placed them in consecutive memory addresses
-            function computeInversions(pProof, pMem) {
+            function computeInversions(pMem) {
                 let y := mload(add(pMem, pY))
                 let w
 <% let inversionCounter = 0 -%>
@@ -335,10 +328,10 @@ contract ShPlonkVerifier {
 <% } -%>
 <% } -%>
                 // Execute Montgomery batched inversions of the previous prepared values
-                inverseArray(pProof, add(pMem, <%- vk.f.length > 1 ? "pDenH1" : "pLiS0Inv_0" %>), <%- inversionCounter %>)
+                inverseArray(add(pMem, <%- vk.f.length > 1 ? "pDenH1" : "pLiS0Inv_0" %>), <%- inversionCounter %>)
             }
 
-            function computeLagrangeItems(pProof, pMem) {
+            function computeLagrangeItems(pMem) {
                 let lagrange
 <%  for(let i = 0; i < fiWPowers.length; i++) { -%>
 <%  let wName0 = fiWPowers[i].lagrangesRequired[0] === 0 ? fiWPowers[i].degree : `${fiWPowers[i].degree}_${fiWPowers[i].lagrangesRequired[0]}d${fiWPowers[i].degree}` -%>
@@ -359,7 +352,7 @@ contract ShPlonkVerifier {
 <%  for(let i = 0; i < vk.f.length; ++i) { -%>
 <%      if(vk.f[i].openingPoints.length === 1) { -%>
 <%  let wName = vk.f[i].openingPoints[0] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}` -%>
-            function computeR<%- i %>(pProof, pMem) {
+            function computeR<%- i %>(pMem) {
                 let res 
                 for { let i := 0 } lt(i, <%- vk.f[i].pols.length %>) { i := add(i, 1) }
                 {
@@ -369,7 +362,7 @@ contract ShPlonkVerifier {
                     let accRoot := 1
 <%  for(let j = 0; j < vk.f[i].pols.length; ++j) { -%> 
 <%  const wPower = vk.f[i].openingPoints[0] === 0 ? '' : vk.f[i].openingPoints[0] === 1 ? 'w' : `w${vk.f[i].openingPoints[0]}` -%>
-                    acc := addmod(acc, mulmod(mload(add(pProof, pEval_<%- vk.f[i].pols[j] + wPower %>)), accRoot, q), q)
+                    acc := addmod(acc, mulmod(calldataload(pEval_<%- vk.f[i].pols[j] + wPower %>), accRoot, q), q)
                     accRoot := mulmod(accRoot, root, q)
 <% } -%>
                     let lagrange := mload(add(pMem, add(pLagrange<%- wName %>_0, mul(i, 32))))
@@ -382,7 +375,7 @@ contract ShPlonkVerifier {
             }
 
 <%      } else { -%>
-            function computeR<%- i %>(pProof, pMem) {
+            function computeR<%- i %>(pMem) {
                 let res 
                 for { let i := 0 } lt(i, <%- vk.f[i].pols.length %>) { i := add(i, 1) }
                 {
@@ -398,7 +391,7 @@ contract ShPlonkVerifier {
                         accRoot := 1
 <%  for(let j = 0; j < vk.f[i].pols.length; ++j) { -%> 
 <%  const wPower = vk.f[i].openingPoints[k] === 0 ? '' : vk.f[i].openingPoints[k] === 1 ? 'w' : `w${vk.f[i].openingPoints[k]}` -%>
-                        acc := addmod(acc, mulmod(mload(add(pProof, pEval_<%- vk.f[i].pols[j] + wPower %>)), accRoot, q), q)
+                        acc := addmod(acc, mulmod(calldataload(pEval_<%- vk.f[i].pols[j] + wPower %>), accRoot, q), q)
                         accRoot := mulmod(accRoot, root, q)
 <% } -%>
 
@@ -486,7 +479,7 @@ contract ShPlonkVerifier {
                 }
             }
 
-            function computeFEJ(pProof, pMem) {
+            function computeFEJ(pMem) {
                 // Prepare shared numerator between F, E and J to reuse it
                 let y := mload(add(pMem, pY))
                 let numerator := 1
@@ -505,15 +498,15 @@ contract ShPlonkVerifier {
                 
                 // Compute full batched polynomial commitment [F]_1
 <%  if(vk.f[0].stages.length !== 1 || vk.f[0].stages[0].stage !== 0) { -%>
-                mstore(add(pMem, pF), mload(add(pProof, pf0)))
-                mstore(add(pMem, add(pF, 32)), mload(add(pProof, add(pf0, 32))))
+                mstore(add(pMem, pF), calldataload(pf0))
+                mstore(add(pMem, add(pF, 32)), calldataload(add(pf0, 32)))
 <% } else { -%>
                 mstore(add(pMem, pF), f0x)
                 mstore(add(pMem, add(pF, 32)), f0y)
 <% } -%>
 <% for(let i = 1; i < vk.f.length; ++i) { -%>
 <%  if(vk.f[i].stages.length !== 1 || vk.f[i].stages[0].stage !== 0) { -%>
-                g1_mulAcc(add(pMem, pF), mload(add(pProof, pf<%- i %>)), mload(add(pProof, add(pf<%- i %>, 32))), mload(add(pMem,pQuotient<%- i %>)))
+                g1_mulAcc(add(pMem, pF), calldataload(pf<%- i %>), calldataload(add(pf<%- i %>, 32)), mload(add(pMem,pQuotient<%- i %>)))
 <% } else { -%>
                 g1_mulAcc(add(pMem, pF), f<%- i %>x, f<%- i %>y, mload(add(pMem,pQuotient<%- i %>)))
 <% } -%>
@@ -528,11 +521,11 @@ contract ShPlonkVerifier {
                 g1_mulAccC(add(pMem, pE), G1x, G1y, accR)
 
                 // Compute the full difference [J]_1
-                g1_mulAcc(add(pMem, pJ), mload(add(pProof, pW)), mload(add(pProof, add(pW, 32))), numerator)
+                g1_mulAcc(add(pMem, pJ), calldataload(pW), calldataload(add(pW, 32)), numerator)
             }
  
             // Validate all evaluations with a pairing checking that e([F]_1 - [E]_1 - [J]_1 + y[Wp]_1, [1]_2) == e([Wp]_1, [x]_2)
-            function checkPairing(pProof, pMem) -> isOk {
+            function checkPairing(pMem) -> isOk {
                 let mIn := mload(0x40)
 
                 // First pairing value
@@ -543,7 +536,7 @@ contract ShPlonkVerifier {
                 // F = F - E - J + y·Wp
                 g1_acc(add(pMem, pF), add(pMem, pE))
                 g1_acc(add(pMem, pF), add(pMem, pJ))
-                g1_mulAcc(add(pMem, pF), mload(add(pProof, pWp)), mload(add(pProof, add(pWp, 32))), mload(add(pMem, pY)))
+                g1_mulAcc(add(pMem, pF), calldataload(pWp), calldataload(add(pWp, 32)), mload(add(pMem, pY)))
 
                 mstore(mIn, mload(add(pMem, pF)))
                 mstore(add(mIn, 32), mload(add(add(pMem, pF), 32)))
@@ -556,8 +549,8 @@ contract ShPlonkVerifier {
 
                 // Third pairing value
                 // Compute -Wp
-                mstore(add(mIn, 192), mload(add(pProof, pWp)))
-                let s := mload(add(add(pProof, pWp), 32))
+                mstore(add(mIn, 192), calldataload(pWp))
+                let s := calldataload(add(pWp, 32))
                 s := mod(sub(qf, s), qf)
                 mstore(add(mIn, 224), s)
 
@@ -576,10 +569,10 @@ contract ShPlonkVerifier {
             mstore(0x40, add(pMem, lastMem))
 
             // Validate that all evaluations ∈ F
-            checkInput(proof)
+            checkInput()
 
             // Compute the challenges alpha and y ∈ F
-            computeChallenges(proof, pMem)
+            computeChallenges(pMem)
 
             // Compute powers of xi seed
             computePowersXi(pMem)
@@ -596,20 +589,20 @@ contract ShPlonkVerifier {
             //      1) Prepare all the denominators to inverse
             //      2) Check the inverse sent by the prover it is what it should be
             //      3) Compute the others inverses using the Montgomery Batched Algorithm using the inverse sent to avoid the inversion operation it does.
-            computeInversions(proof, pMem)
+            computeInversions(pMem)
 
             // Compute Lagrange Items to avoid calculating it more than once
-            computeLagrangeItems(proof, pMem)
+            computeLagrangeItems(pMem)
 
 <% for(let i = 0; i < vk.f.length; ++i) { -%>
-            computeR<%- i %>(proof, pMem)
+            computeR<%- i %>(pMem)
 <% } -%>
 
             // Compute full batched polynomial commitment [F]_1, group-encoded batch evaluation [E]_1 and the full difference [J]_1
-            computeFEJ(proof, pMem)
+            computeFEJ(pMem)
 
             // Validate all evaluations
-            let isValid := checkPairing(proof, pMem)
+            let isValid := checkPairing(pMem)
 
             mstore(0x40, sub(pMem, lastMem))
             mstore(0, isValid)

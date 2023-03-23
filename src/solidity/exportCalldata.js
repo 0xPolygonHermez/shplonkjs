@@ -1,5 +1,6 @@
-const { getOrderedEvals, addCommitsF } = require("../helpers/helpers.js");
+const { getOrderedEvals } = require("../helpers/helpers.js");
 const fs = require("fs");
+const {ethers} = require("hardhat");
 
 function i2hex(i) {
     return ("0" + i.toString(16)).slice(-2);
@@ -49,10 +50,14 @@ module.exports.exportCalldata = async function exportCalldata(fileName, vk, comm
     // Add the montgomery batched inverse evaluation at the end of the buffer
     Fr.toRprBE(proofBuff, G1.F.n8 * 2 * nG1 + Fr.n8 * orderedEvals.length, evaluations.inv);
 
-    // Convert the proof into hex
-    const proofHex = `0x${Array.from(proofBuff).map(i2hex).join("")}`;
+    const proofStringHex = Array.from(proofBuff).map(i2hex).join("");
+    const proofHex = [];
+    const proofSize = orderedEvals.length + 1 + (fCommitted.length * 2) + 4;
+    for(let i = 0; i < proofSize; ++i) {
+        proofHex.push(ethers.utils.hexZeroPad(`0x${proofStringHex.slice(i*64, (i+1)*64)}`, 32));
+    }
     
-    fs.writeFileSync(fileName, proofHex, "utf-8");
+    fs.writeFileSync(fileName, JSON.stringify(proofHex), "utf-8");
 
     return proofHex;
 }

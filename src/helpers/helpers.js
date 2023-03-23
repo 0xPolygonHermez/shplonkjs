@@ -31,13 +31,13 @@ module.exports.computeChallengeAlpha = function computeChallengeAlpha(xiSeed, or
     // Initialize new transcript
     const transcript = new Keccak256Transcript(curve);
 
+    // Add previous challenge xiSeed to the config
+    transcript.addScalar(xiSeed);
+
     // Add all the ordered evals to the transcript
     for(let i = 0; i < orderedEvals.length; ++i) {
         transcript.addScalar(orderedEvals[i].evaluation);
     }
-
-    // Add previous challenge xiSeed to the config
-    transcript.addScalar(xiSeed);
 
     // Calculate the challenge
     const challengeAlpha = transcript.getChallenge();
