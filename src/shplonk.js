@@ -2,13 +2,10 @@ const { calculateRoots, computeChallengeAlpha, computeChallengeXiSeed, computeCh
 const { calculateEvaluations, computeR, computeW, computeWp, getMontgomeryBatchedInverse } = require("./helpers/prover.js");
 const { calculateQuotients, computeE, computeF, computeJ, computeRVerifier, isValidPairing } = require("./helpers/verifier.js");
 const { lcm } = require("./utils.js");
-const { computeRootWi, computeWi, getFByStage, getFByOpeningPoints, getPowersOfTau } = require("./helpers/setup.js");
+const { computeRootWi, computeWi, getFByStage, getFByOpeningPoints, getPowersOfTau, getPowersW } = require("./helpers/setup.js");
 const {CPolynomial} = require("./polynomial/cpolynomial.js");
 
 module.exports.setup = async function setup(config, ptauFilename, logger) {
-    
-   
-
     //fi polynomials can only be created either by stage or by opening points.
     if(!["stage", "openingPoints"].includes(config.openBy)) throw new Error(`${config.openBy} is not valid. You can only openBy polynomials by "stage" or "openingPoints".`);
     
@@ -19,30 +16,13 @@ module.exports.setup = async function setup(config, ptauFilename, logger) {
     if(f.length === 1) throw new Error("Need to provide at least to fi.");
 
     // Get all the different generators needed in the protocol 
-    const wPowers = {};
-    for(let i = 0; i < f.length; ++i) {
-        let fi = f[i];
-        for(let i = 0; i < fi.openingPoints.length; ++i) {
-            if(!wPowers[fi.pols.length]) {
-                wPowers[fi.pols.length] = [fi.openingPoints[i]];
-            } else {
-                if(!wPowers[fi.pols.length].includes(fi.openingPoints[i])) {
-                    wPowers[fi.pols.length].push(fi.openingPoints[i]);
-                }
-            }
-        }
-    }
+    const wPowers = getPowersW(f);
 
     // Calculate the Powers of Tau (checking its validity first) and store it along with X_2, which will be needed for the verifier
     const {PTau, X_2, curve} = await getPowersOfTau(f, ptauFilename, config.power);
 
-    // Compute least common multiple of the order of all the generators, which will be needed to caclulate the roots
-    const powerW = lcm(Object.keys(wPowers));
-    
     const zkey = {
-        powerW,
         power: config.power,
-        nOpeningPoints: config.polDefs.length,
         f,
         X_2,
     };
@@ -65,6 +45,7 @@ module.exports.setup = async function setup(config, ptauFilename, logger) {
 
 
 module.exports.commit = async function commit(stage, pk, polynomials, PTau, multiExp, curve, logger) {
+    if (logger) logger.info(`> Commiting polynomials for stage ${stage}`);
 
     // Sort f by index
     pk.f.sort((a, b) => a - b);
@@ -112,6 +93,7 @@ module.exports.commit = async function commit(stage, pk, polynomials, PTau, mult
     }
 
     if(multiExp) {
+        if (logger) logger.info(`> Computing multiExponentiation for stage ${stage}`);
         for(let i = 0; i < pols.length; ++i) {
             //Store the multiexponentiation evaluation in a promise array, which will be solved after the loop ends
             promises.push(pols[i].pol.multiExponentiation(PTau));
@@ -130,6 +112,7 @@ module.exports.commit = async function commit(stage, pk, polynomials, PTau, mult
 
 
 module.exports.open = async function open(pk, PTau, polynomials, committedPols, curve, logger) {
+    if (logger) logger.info(`> Opening polynomials and calculating W, Wp`);
 
     // Sort f by index
     pk.f.sort((a, b) => a - b);
@@ -143,7 +126,7 @@ module.exports.open = async function open(pk, PTau, polynomials, committedPols, 
     }
 
     // Calculate the xiSeed from all the committed polynomials
-    const xiSeed = computeChallengeXiSeed(pk.f, curve);
+    const xiSeed = computeChallengeXiSeed(pk.f.sort((a,b) => a.index > b.index ? 1 : -1).map(fi => fi.commit), curve);
 
     // Calculate the roots of all the fi
     const roots = calculateRoots(pk, xiSeed, curve, logger);
@@ -196,7 +179,7 @@ module.exports.verifyOpenings = async function verifyOpenings(vk, commits, evalu
     }
 
     // Calculate the xiSeed from all the committed polynomials
-    const xiSeed = computeChallengeXiSeed(vk.f, curve);
+    const xiSeed = computeChallengeXiSeed(vk.f.sort((a,b) => a.index > b.index ? 1 : -1).map(fi => fi.commit), curve);
 
     // Order the evaluations. It is important to keep this order to then be consistant with the solidity verifier
     const orderedEvals = getOrderedEvals(vk.f, evaluations);

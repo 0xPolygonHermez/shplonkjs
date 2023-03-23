@@ -1,19 +1,19 @@
 const {BigBuffer} = require("ffjavascript");
 const {Keccak256Transcript} = require("../Keccak256Transcript.js");
 const {Polynomial} = require("../polynomial/polynomial.js");
-const {log2} = require("../utils.js");
+const {log2, lcm} = require("../utils.js");
 
 /**
  * Compute xiSeed, which is used to compute all the roots
  * It contains all the committed polynomials
  */
-module.exports.computeChallengeXiSeed = function computeChallengeXiSeed(f, curve, logger) {
+module.exports.computeChallengeXiSeed = function computeChallengeXiSeed(commits, curve, logger) {
     // Initialize new transcript
     const transcript = new Keccak256Transcript(curve);
 
     // Add all commits to the transcript
-    for(let i = 0; i < f.length; ++i) {
-        transcript.addPolCommitment(f[i].commit);
+    for(let i = 0; i < commits.length; ++i) {
+        transcript.addPolCommitment(commits[i]);
     }
 
     // Calculate the challenge
@@ -101,13 +101,14 @@ function calculateRootsFi(initialOmega, initialValue, degFi, lcm, xiSeed, curve,
 module.exports.calculateRoots = function calculateRoots(zkey, xiSeed, curve, logger) {
 
     const roots = [];
+    const powerW = lcm(Object.keys(zkey).filter(k => k.match(/^w\d$/)).map(wi => wi.slice(1)));
     for(let i = 0; i < zkey.f.length; ++i) {
         const rootsFi = [];
         const nPols = zkey.f[i].pols.length;
         const initialOmega = zkey[`w${nPols}`];
         for(let k = 0; k < zkey.f[i].openingPoints.length; ++k) {
             const initValue = zkey.f[i].openingPoints[k] === 0 ? curve.Fr.one : zkey[`w${nPols}_${zkey.f[i].openingPoints[k]}d${nPols}`];
-            const rootWi = calculateRootsFi(initialOmega, initValue, nPols, zkey.powerW, xiSeed, curve, logger);
+            const rootWi = calculateRootsFi(initialOmega, initValue, nPols, powerW, xiSeed, curve, logger);
             rootsFi.push(rootWi);    
         }
         roots.push(rootsFi);

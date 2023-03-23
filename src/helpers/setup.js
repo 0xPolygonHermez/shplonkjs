@@ -246,7 +246,6 @@ exports.getFByOpeningPoints = function getFByOpeningPoints(config) {
     // Define the composed polinomial f with all the polinomials provided
     for(let k = 0; k < splittedPols.length; ++k) {
         const p = splittedPols[k];
-
         const degrees = p.map((pi, index) => pi.degree*splittedPols[k].length + index);
         const fiDegree = Math.max(...degrees);
         const polsNames = p.map(pi => pi.name);
@@ -289,6 +288,24 @@ async function readPTauHeader(fd, sections) {
     return {curve, power, ceremonyPower};
 }
 
+exports.getPowersW = function getPowersW(f) {
+    // Get all the different generators needed in the protocol 
+    const wPowers = {};
+    for(let i = 0; i < f.length; ++i) {
+        let fi = f[i];
+        for(let i = 0; i < fi.openingPoints.length; ++i) {
+            if(!wPowers[fi.pols.length]) {
+                wPowers[fi.pols.length] = [fi.openingPoints[i]];
+            } else {
+                if(!wPowers[fi.pols.length].includes(fi.openingPoints[i])) {
+                    wPowers[fi.pols.length].push(fi.openingPoints[i]);
+                }
+            }
+        }
+    }
+
+    return wPowers;
+}
 exports.getPowersOfTau = async function getPowersOfTau(f, ptauFilename, power, logger) {
         
     if(!ptauFilename) throw new Error(`Powers of Tau filename is not provided.`);
@@ -306,7 +323,7 @@ exports.getPowersOfTau = async function getPowersOfTau(f, ptauFilename, power, l
     const sG1 = curve.G1.F.n8 * 2;
     const sG2 = curve.G2.F.n8 * 2;
     
-    const maxFiDegree = Math.max(...f.map(fi => fi.degree + 1));
+    const maxFiDegree = Math.max(...f.map(fi => fi.degree));
 
     const nDomainSize = Math.ceil(maxFiDegree / Math.pow(2, power));
     const pow2DomainSize = Math.pow(2, Math.ceil(Math.log2(nDomainSize)));
@@ -319,7 +336,7 @@ exports.getPowersOfTau = async function getPowersOfTau(f, ptauFilename, power, l
     }
 
     const PTau = new BigBuffer(Math.pow(2, power) * pow2DomainSize * sG1);
-    await fdPTau.readToBuffer(PTau, 0, maxFiDegree * sG1, pTauSections[2][0].p);
+    await fdPTau.readToBuffer(PTau, 0, (maxFiDegree + 1) * sG1, pTauSections[2][0].p);
     
     const X_2 = await fdPTau.read(sG2, pTauSections[3][0].p + sG2);
 

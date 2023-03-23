@@ -3,6 +3,7 @@ const {utils} = require("ffjavascript");
 const { getOrderedEvals } = require("../helpers/helpers.js");
 const path = require("path");
 const fs = require("fs");
+const { lcm } = require("../utils.js");
 
 module.exports.exportSolidityVerifier = async function exportSolidityVerifier(fileName, vk, commits, curve, logger) {
     if (logger) logger.info("FFLONK EXPORT SOLIDITY VERIFIER STARTED");
@@ -35,8 +36,11 @@ module.exports.exportSolidityVerifier = async function exportSolidityVerifier(fi
 
     let fiWPowers = [...new Set(vk.f.map(fi => fi.pols.length))];
 
-    fiWPowers = fiWPowers.map(fi => {return {degree: fi, wPower: vk.powerW / fi}; }).sort((a, b) => a.wPower >= b.wPower ? 1 : -1);
+    const powerW = lcm(Object.keys(vk).filter(k => k.match(/^w\d$/)).map(wi => wi.slice(1)));
 
+    fiWPowers = fiWPowers.map(fi => {return {degree: fi, wPower: powerW / fi}; }).sort((a, b) => a.wPower >= b.wPower ? 1 : -1);
+
+    vk.powerW = powerW;
     vk.X_2 = curve.G2.toObject(vk.X_2);
 
     const orderedEvals = getOrderedEvals(vk.f);

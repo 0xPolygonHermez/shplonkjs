@@ -1,5 +1,6 @@
 const {Polynomial} = require("../polynomial/polynomial.js");
 const { Scalar } = require("ffjavascript");
+const { lcm } = require("../utils.js");
 
 /**
  *  Compute the coefficients of Ri(X) from evaluations using lagrange interpolation. R0(X) ∈ F_{<N}[X]
@@ -29,7 +30,7 @@ exports.computeR = async function computeR(f, roots, curve, logger) {
     const fPols = f.map(fi => fi.pol);
     const promises = [];
     for(let i = 0; i < fPols.length; ++i) {
-        if (logger) logger.info("> Computing r polynomial");
+        if (logger) logger.info(`> Computing r${i} polynomial`);
         promises.push(computeRi(fPols[i], roots[i], curve, logger));
     }
 
@@ -41,17 +42,27 @@ exports.computeR = async function computeR(f, roots, curve, logger) {
  * 
  */
 exports.calculateEvaluations = function calculateEvaluations(pk, polynomials, xiSeed, curve, logger) {
+    if (logger) logger.info(`> Computing evaluations`);
+
     // Calculate the array of opening points
     const openingPoints = []; 
 
     // Firstly, calculate challenge xi, which will be xiSeed ^ lcm(f)
-    let challengeXi = curve.Fr.exp(xiSeed, pk.powerW);
+    const powerW = lcm(Object.keys(pk).filter(k => k.match(/^w\d$/)).map(wi => wi.slice(1)));
+
+    let challengeXi = curve.Fr.exp(xiSeed, powerW);
     openingPoints.push(challengeXi);
 
     // Calculate all the subsequent opening points zw, zw²... and add it to opening points
     let challengeXiw = challengeXi;
 
-    for(let i = 1; i < pk.nOpeningPoints; ++i) {
+    let nOpening = [];
+    for(let i = 0; i < pk.f.length; ++i) {
+        for(let j = 0; j < pk.f[i].openingPoints.length; ++j) {
+            if(!nOpening.includes(pk.f[i].openingPoints[j])) nOpening.push(pk.f[i].openingPoints[j])
+        }
+    }
+    for(let i = 1; i < nOpening.length; ++i) {
         challengeXiw = curve.Fr.mul(challengeXiw, curve.Fr.exp(curve.Fr.nqr, Scalar.div(Scalar.sub(curve.Fr.p, 1), Scalar.e(2**pk.power))));
         openingPoints.push(challengeXiw);
     }
@@ -189,6 +200,8 @@ exports.computeWp = function computeWp(f, r, roots, W, challengeY, challengeAlph
     // 1 - Compute L
     const L = computeL(W, f, r, roots, challengeY, challengeAlpha, toInverse, curve, logger);
 
+    if (logger) logger.info(`> Computing ZTS2 polynomial`);
+
     // 2 - Compute ZTS2
     const ZTS2 = Polynomial.zerofierPolynomial(roots.slice(1).flat(Infinity), curve);
 
@@ -220,6 +233,8 @@ function computeLi(toInverse, roots, curve, logger) {
 }
 
 exports.getMontgomeryBatchedInverse = function getMontgomeryBatchedInverse(roots, toInverse, curve, logger) {
+    if (logger) logger.info(`> Getting Montgomery batched inverse`);
+
     //   · denominator needed in step 10 and 11 of the verifier
     //     toInverse.denH1 & toInverse.denH2  -> Computed in round5, computeL()
 

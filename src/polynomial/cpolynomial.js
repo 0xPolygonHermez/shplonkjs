@@ -53,6 +53,7 @@ module.exports.CPolynomial = class CPolynomial {
 
     getPolynomial() {
         if(this.n === 1) return this.polynomials[0];
+        let degrees = this.polynomials.map(polynomial => polynomial === undefined ? 0 : polynomial.degree());
         const maxDegree = this.degree();
         const lengthBuffer = 2 ** (log2(maxDegree) + 1);
         const sFr = this.Fr.n8;
@@ -64,8 +65,8 @@ module.exports.CPolynomial = class CPolynomial {
             const i_sFr = i_n8 * this.n;
 
             for (let j = 0; j < this.n; j++) {
-                if (this.polynomials[j] !== undefined && this.polynomials[j].degree() >= 0 && i <= this.polynomials[j].degree()) {
-                    polynomial.coef.set(this.polynomials[j].coef.slice(i_n8, i_n8 + sFr), i_sFr + j * sFr);
+                if (this.polynomials[j] !== undefined) {
+                    if(degrees[j] >= 0 && i <= degrees[j]) polynomial.coef.set(this.polynomials[j].coef.slice(i_n8, i_n8 + sFr), i_sFr + j * sFr);
                 }
             } 
         }
