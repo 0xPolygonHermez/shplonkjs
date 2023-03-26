@@ -1,4 +1,4 @@
-const {BigBuffer, getCurveFromName} = require("ffjavascript");
+const {BigBuffer, F1Field} = require("ffjavascript");
 const path = require("path");
 const {expect} = require("chai");
 const {Polynomial} = require("../src/polynomial/polynomial.js");
@@ -13,7 +13,7 @@ const {ethers, run} = require("hardhat");
 describe("Shplonk test suite", function () {
     this.timeout(1000000000);
 
-    async function shPlonkTest(config, ptauFilename, tmpName = "test") {
+    async function shPlonkTest(config, ptauFilename, options = {}, tmpName = "test") {
         const {zkey, PTau, curve} = await setup(config, ptauFilename);
     
         const sFr = curve.Fr.n8;    
@@ -47,9 +47,9 @@ describe("Shplonk test suite", function () {
             }
         }
         
-        const [commits, evaluations, xiSeed] = await open(zkey, PTau, ctx, committedPols, curve);
+        const [commits, evaluations, xiSeed] = await open(zkey, PTau, ctx, committedPols, curve, options);
 
-        const isValid = await verifyOpenings(zkey, commits, evaluations, curve);
+        const isValid = await verifyOpenings(zkey, commits, evaluations, curve, options);
         assert(isValid);
 
         if (!fs.existsSync(`./tmp/calldata`)){
@@ -60,9 +60,9 @@ describe("Shplonk test suite", function () {
             fs.mkdirSync(`./tmp/contracts`, {recursive: true});
         }
 
-        const proof = await exportCalldata(`tmp/calldata/shplonk_calldata_${tmpName}.txt`, zkey, commits, evaluations, curve);
+        const input = await exportCalldata(`tmp/calldata/shplonk_calldata_${tmpName}.txt`, zkey, commits, evaluations, curve, options);
         
-        await exportSolidityVerifier(`tmp/contracts/shplonk_verifier_${tmpName}.sol`, zkey, commits, curve);
+        await exportSolidityVerifier(`tmp/contracts/shplonk_verifier_${tmpName}.sol`, zkey, commits, curve, options);
 
         await run("compile");
 
@@ -71,7 +71,7 @@ describe("Shplonk test suite", function () {
 
         await shPlonkVerifier.deployed();
 
-        expect(await shPlonkVerifier.verifyProof(proof)).to.equal(true);
+        expect(await shPlonkVerifier.verifyProof(...input)).to.equal(true);
     }
 
     describe("Testing shplonk using setup by stage",() => {
@@ -185,6 +185,47 @@ describe("Shplonk test suite", function () {
             };
     
             await shPlonkTest(config, ptauFilename, "test3");
+        });
+
+        it("shplonk full test specifying xiSeed from outside the protocol", async () => {
+            const ptauFilename = path.join("test", "powersOfTau15_final.ptau");
+    
+            const F = new F1Field(21888242871839275222246405745257275088548364400416034343698204186575808495617n);
+            const config = {
+                "power": 5,
+                "polDefs": [
+                    [
+                        {"name": "QL", "stage": 0, "degree": 32},
+                        {"name": "QR", "stage": 0, "degree": 32},
+                        {"name": "QO", "stage": 0, "degree": 32},
+                        {"name": "QM", "stage": 0, "degree": 32},
+                        {"name": "QC", "stage": 0, "degree": 32},
+                        {"name": "Sigma1", "stage": 0, "degree": 32},
+                        {"name": "Sigma2", "stage": 0, "degree": 32},
+                        {"name": "Sigma3", "stage": 0, "degree": 32},
+                        {"name": "A", "stage": 1, "degree": 33},
+                        {"name": "B", "stage": 1, "degree": 33},
+                        {"name": "C", "stage": 1, "degree": 33},
+                        {"name": "T0", "stage": 1, "degree": 65},
+                        {"name": "Z",  "stage": 2, "degree": 34},
+                        {"name": "T1", "stage": 2, "degree": 33},
+                        {"name": "T2", "stage": 2, "degree": 101}
+                    ],
+                    [
+                        {"name": "Z",  "stage": 2, "degree": 34},
+                        {"name": "T1", "stage": 2, "degree": 33},
+                        {"name": "T2", "stage": 2, "degree": 101}
+                    ],
+                    [
+                        {"name": "T3", "stage": 3, "degree": 34},
+                        {"name": "T4", "stage": 3,  "degree": 33},
+                    ]
+                ], 
+                "extraMuls": 5,
+                "openBy": 'stage',
+            };
+    
+            await shPlonkTest(config, ptauFilename, {xiSeed: F.random()}, "testXiSeed");
         });
     });
 

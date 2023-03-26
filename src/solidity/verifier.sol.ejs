@@ -64,7 +64,9 @@ contract ShPlonkVerifier {
     uint16 constant pAlpha  = 32;
 
     // XiSeeds
+<%  if(!xiSeed) { -%> 
     uint16 constant pXiSeed = 64;
+<% } -%>
 <%  let memC = 96; -%>
 <%  for (let i = 0; i < fiWPowers.length; ++i) { -%>
     uint16 constant pXiSeed_w<%- fiWPowers[i].degree %> = <%- memC %>;
@@ -134,7 +136,12 @@ contract ShPlonkVerifier {
 <%  let pLastMem = memC -%>
     uint16 constant lastMem = <%- pLastMem %>;
 
-    function verifyProof(bytes32[<%- (vk.f.filter(fi => fi.stages.length !== 1 || fi.stages[0].stage !== 0).length + 2) * 2 + orderedEvals.length %>] calldata proof) public view returns (bool) {
+<%  let nBytesProof = (vk.f.filter(fi => fi.stages.length !== 1 || fi.stages[0].stage !== 0).length + 2) * 2 + orderedEvals.length -%>
+<%  if(xiSeed) { -%>
+    function verifyProof(bytes32[<%- nBytesProof %>] calldata proof, bytes32 challengeXiSeed) public view returns (bool) {
+<%  } else { -%>
+    function verifyProof(bytes32[<%- nBytesProof %>] calldata proof) public view returns (bool) {
+<% } -%> 
         assembly {
             // Computes the inverse of an array of values
             // See https://vitalik.ca/general/2018/07/21/starks_part_3.html in section where explain fields operations
@@ -223,11 +230,11 @@ contract ShPlonkVerifier {
 <% } -%>
             }
 
-            function computePowersXi(pMem) {
+            function computePowersXi(pMem, xiSeed) {
                 let initValue := 1
 <% let wCounter = 0 -%>
 <% for (let i = 1; i <= vk.powerW; ++i) { -%>
-                initValue := mulmod(initValue, mload(add(pMem, pXiSeed)), q)
+                initValue := mulmod(initValue, xiSeed, q)
 <%      while(fiWPowers[wCounter] && fiWPowers[wCounter].wPower === i) { -%>
                 mstore(add(pMem, pXiSeed_w<%- fiWPowers[wCounter++].degree %>), initValue)
 <%      } -%>
@@ -250,8 +257,9 @@ contract ShPlonkVerifier {
 <%          } -%>
 <%      } -%>
             }
-
-            function computeChallenges(pMem) {
+<% let challengesFunctionInput = xiSeed ? "pMem, xiSeed" : "pMem" -%>       
+            function computeChallenges(<%- challengesFunctionInput %>) {
+<%  if(!xiSeed) { -%>
                 // Compute xiSeed
 <%  for(let i = 0; i < vk.f.length; ++i) { -%>
 <%  if(vk.f[i].stages.length !== 1 || vk.f[i].stages[0].stage !== 0) { -%>
@@ -262,10 +270,12 @@ contract ShPlonkVerifier {
                 mstore(add(lastMem,<%- i * 64 + 32 %>), f<%- vk.f[i].index %>y)
 <%  } -%>
 <%  } -%>
-                mstore(add(pMem, pXiSeed), mod(keccak256(lastMem, <%- vk.f.length * 64 %>), q))
+                let xiSeed := mod(keccak256(lastMem, <%- vk.f.length * 64 %>), q)
+                mstore(add(pMem, pXiSeed), xiSeed)
+<% } -%>
 
                 // Compute challenge.alpha
-                mstore(lastMem, mload(add(pMem,pXiSeed)))
+                mstore(lastMem, xiSeed)
                 calldatacopy(add(lastMem, 32), pEval_<%- orderedEvals[0] %>, <%- (orderedEvals.length - 1) * 32 %>)
 
                 let alpha := mod(keccak256(lastMem, <%- orderedEvals.length * 32 %>), q)
@@ -574,11 +584,14 @@ contract ShPlonkVerifier {
             // Validate that all evaluations ∈ F
             checkInput()
 
+<% let xiSeedValue = xiSeed ? "challengeXiSeed" : "mload(add(pMem, pXiSeed))" -%>
             // Compute the challenges alpha and y ∈ F
-            computeChallenges(pMem)
+
+<% let challengesInput = xiSeed ? "pMem, challengeXiSeed" : "pMem" -%>       
+            computeChallenges(<%- challengesInput %>)
 
             // Compute powers of xi seed
-            computePowersXi(pMem)
+            computePowersXi(pMem, <%- xiSeedValue %>)
 
             
             // Compute roots

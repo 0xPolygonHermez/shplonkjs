@@ -111,7 +111,10 @@ module.exports.commit = async function commit(stage, pk, polynomials, PTau, mult
 }
 
 
-module.exports.open = async function open(pk, PTau, polynomials, committedPols, curve, logger) {
+module.exports.open = async function open(pk, PTau, polynomials, committedPols, curve, options = {  }) {
+
+    const logger = options.logger;
+    
     if (logger) logger.info(`> Opening polynomials and calculating W, Wp`);
 
     // Sort f by index
@@ -126,7 +129,7 @@ module.exports.open = async function open(pk, PTau, polynomials, committedPols, 
     }
 
     // Calculate the xiSeed from all the committed polynomials
-    const xiSeed = computeChallengeXiSeed(pk.f.sort((a,b) => a.index > b.index ? 1 : -1).map(fi => fi.commit), curve);
+    const xiSeed = options.xiSeed ? curve.Fr.e(options.xiSeed) : computeChallengeXiSeed(pk.f.sort((a,b) => a.index > b.index ? 1 : -1).map(fi => fi.commit), curve);
 
     // Calculate the roots of all the fi
     const roots = calculateRoots(pk, xiSeed, curve, logger);
@@ -167,8 +170,10 @@ module.exports.open = async function open(pk, PTau, polynomials, committedPols, 
     return [commits, evaluations, xiSeed];
 }
 
-module.exports.verifyOpenings = async function verifyOpenings(vk, commits, evaluations, curve, logger) {
+module.exports.verifyOpenings = async function verifyOpenings(vk, commits, evaluations, curve, options = {}) {
     
+    const logger = options.logger;
+
     // Sort f by index
     vk.f.sort((a, b) => a - b);
 
@@ -179,7 +184,7 @@ module.exports.verifyOpenings = async function verifyOpenings(vk, commits, evalu
     }
 
     // Calculate the xiSeed from all the committed polynomials
-    const xiSeed = computeChallengeXiSeed(vk.f.sort((a,b) => a.index > b.index ? 1 : -1).map(fi => fi.commit), curve);
+    const xiSeed =  options.xiSeed ? curve.Fr.e(options.xiSeed) : computeChallengeXiSeed(vk.f.sort((a,b) => a.index > b.index ? 1 : -1).map(fi => fi.commit), curve);
 
     // Order the evaluations. It is important to keep this order to then be consistant with the solidity verifier
     const orderedEvals = getOrderedEvals(vk.f, evaluations);

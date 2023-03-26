@@ -5,7 +5,9 @@ const path = require("path");
 const fs = require("fs");
 const { lcm } = require("../utils.js");
 
-module.exports.exportSolidityVerifier = async function exportSolidityVerifier(fileName, vk, commits, curve, logger) {
+module.exports.exportSolidityVerifier = async function exportSolidityVerifier(fileName, vk, commits, curve, options = {}) {
+    const logger = options.logger;
+    
     if (logger) logger.info("FFLONK EXPORT SOLIDITY VERIFIER STARTED");
 
     for(let i = 0; i < vk.f.length; ++i) {
@@ -70,6 +72,7 @@ module.exports.exportSolidityVerifier = async function exportSolidityVerifier(fi
         orderedEvals: orderedEvals.map(e => e.name),
         ws,
         fiWPowers,
+        xiSeed: options.xiSeed,
     };
     if (logger) logger.info("FFLONK EXPORT SOLIDITY VERIFIER FINISHED");
 

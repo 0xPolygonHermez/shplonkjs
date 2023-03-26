@@ -6,7 +6,9 @@ function i2hex(i) {
     return ("0" + i.toString(16)).slice(-2);
 }
 
-module.exports.exportCalldata = async function exportCalldata(fileName, vk, commits, evaluations, curve, logger) {
+module.exports.exportCalldata = async function exportCalldata(fileName, vk, commits, evaluations, curve, options = {}) {
+
+    const logger = options.logger; 
 
     // Sort f by index
     vk.f.sort((a, b) => a - b);
@@ -57,7 +59,12 @@ module.exports.exportCalldata = async function exportCalldata(fileName, vk, comm
         proofHex.push(ethers.utils.hexZeroPad(`0x${proofStringHex.slice(i*64, (i+1)*64)}`, 32));
     }
     
-    fs.writeFileSync(fileName, JSON.stringify(proofHex), "utf-8");
+    if(options.xiSeed) {
+        fs.writeFileSync(fileName, JSON.stringify(`[${proofHex}, ${options.xiSeed}]`), "utf-8");
+        return [proofHex, ethers.utils.hexlify(options.xiSeed)];
+    } else {
+        fs.writeFileSync(fileName, JSON.stringify(proofHex), "utf-8");
+        return proofHex;
+    }
 
-    return proofHex;
 }
