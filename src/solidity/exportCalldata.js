@@ -10,6 +10,8 @@ module.exports.exportCalldata = async function exportCalldata(fileName, vk, comm
 
     const logger = options.logger; 
 
+    const nonCommittedPols = options.nonCommittedPols ? options.nonCommittedPols : [];
+    
     // Sort f by index
     vk.f.sort((a, b) => a - b);
 
@@ -26,8 +28,18 @@ module.exports.exportCalldata = async function exportCalldata(fileName, vk, comm
     // A committed polynomial fi will be considered part of the setup if all its polynomials composing it are from the stage 0
     const fCommitted = vk.f.filter(fi => fi.stages.length !== 1 || fi.stages[0].stage !== 0).sort((a, b) => a.index >= b.index ? 1 : -1);
 
+    // Order the evaluations. It is important to keep this order to then be consistant with the solidity verifier
+    const  orderedEvals = getOrderedEvals(vk.f, evaluations);
+
+    const orderedEvalsCommitted = orderedEvals.filter(e => !nonCommittedPols.includes(e.name));
+
     const nG1 = 2 + fCommitted.length;
-    const nFr = Object.keys(evaluations).length;
+    const nFr = Object.keys(orderedEvalsCommitted).length + 1;
+
+    // Define the non Committed evals buffer
+    const nonCommittedEvalsBuff = new Uint8Array(Fr.n8 * nonCommittedPols.length);
+
+    const orderedEvalsNonCommitted = orderedEvals.filter(e => nonCommittedPols.includes(e.name));
 
     // Define the proof buffer
     const proofBuff = new Uint8Array(G1.F.n8 * 2 * nG1 + Fr.n8 * nFr);
@@ -41,30 +53,48 @@ module.exports.exportCalldata = async function exportCalldata(fileName, vk, comm
         G1.toRprUncompressed(proofBuff, G1.F.n8 * 2 * (i + 2), G1.e(fCommitted[i].commit));
     }
 
-    // Order the evaluations. It is important to keep this order to then be consistant with the solidity verifier
-    const orderedEvals = getOrderedEvals(vk.f, evaluations);
-
-    // Add all the evaluations into the proof buffer
-    for(let i = 0; i < orderedEvals.length; ++i) {
-        Fr.toRprBE(proofBuff, G1.F.n8 * 2 * nG1 + Fr.n8 * i, orderedEvals[i].evaluation);
+    // Add committed evaluations into the proof buffer
+    for(let i = 0; i < orderedEvalsCommitted.length; ++i) {
+        Fr.toRprBE(proofBuff, G1.F.n8 * 2 * nG1 + Fr.n8 * i, orderedEvalsCommitted[i].evaluation);
     }
 
     // Add the montgomery batched inverse evaluation at the end of the buffer
-    Fr.toRprBE(proofBuff, G1.F.n8 * 2 * nG1 + Fr.n8 * orderedEvals.length, evaluations.inv);
+    Fr.toRprBE(proofBuff, G1.F.n8 * 2 * nG1 + Fr.n8 * orderedEvalsCommitted.length, evaluations.inv);
 
+    // Add non committed evaluations into the proof buffer
+    for(let i = 0; i < nonCommittedPols.length; ++i) {
+        Fr.toRprBE(nonCommittedEvalsBuff, Fr.n8 * i, orderedEvals.find(e => e.name === nonCommittedPols[i]).evaluation);
+    }
+    
     const proofStringHex = Array.from(proofBuff).map(i2hex).join("");
     const proofHex = [];
-    const proofSize = orderedEvals.length + 1 + (fCommitted.length * 2) + 4;
+    const proofSize = orderedEvalsCommitted.length + 1 + (fCommitted.length * 2) + 4;
     for(let i = 0; i < proofSize; ++i) {
         proofHex.push(ethers.utils.hexZeroPad(`0x${proofStringHex.slice(i*64, (i+1)*64)}`, 32));
     }
     
-    if(options.xiSeed) {
-        fs.writeFileSync(fileName, JSON.stringify(`[${proofHex}, ${options.xiSeed}]`), "utf-8");
-        return [proofHex, ethers.utils.hexlify(options.xiSeed)];
-    } else {
+    if(!options.xiSeed && nonCommittedPols.length === 0) {
         fs.writeFileSync(fileName, JSON.stringify(proofHex), "utf-8");
         return proofHex;
+
     }
 
+    
+    let inputs = [proofHex];
+    if(options.xiSeed) {
+        inputs.push(ethers.utils.hexlify(options.xiSeed));
+    }
+
+    if(nonCommittedPols.length > 0) {
+        const nonCommittedEvalsStringHex = Array.from(nonCommittedEvalsBuff).map(i2hex).join("");
+        const nonCommittedEvalsHex = [];
+        for(let i = 0; i < orderedEvalsNonCommitted.length; ++i) {
+            nonCommittedEvalsHex.push(ethers.utils.hexZeroPad(`0x${nonCommittedEvalsStringHex.slice(i*64, (i+1)*64)}`, 32));
+        }
+        inputs.push(nonCommittedEvalsHex);
+    }
+    
+    fs.writeFileSync(fileName, JSON.stringify(inputs).substring(1, JSON.stringify(inputs).length - 1), "utf-8");
+
+    return inputs;
 }

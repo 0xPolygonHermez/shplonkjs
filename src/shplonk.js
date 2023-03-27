@@ -131,6 +131,8 @@ module.exports.open = async function open(pk, PTau, polynomials, committedPols, 
     // Calculate the xiSeed from all the committed polynomials
     const xiSeed = options.xiSeed ? curve.Fr.e(options.xiSeed) : computeChallengeXiSeed(pk.f.sort((a,b) => a.index > b.index ? 1 : -1).map(fi => fi.commit), curve);
 
+    const nonCommittedPols = options.nonCommittedPols ? options.nonCommittedPols : [];
+    
     // Calculate the roots of all the fi
     const roots = calculateRoots(pk, xiSeed, curve, logger);
 
@@ -141,7 +143,7 @@ module.exports.open = async function open(pk, PTau, polynomials, committedPols, 
     const orderedEvals = getOrderedEvals(pk.f, evaluations);
 
     // Calculate challenge alpha using all the evaluations
-    const challengeAlpha = computeChallengeAlpha(xiSeed, orderedEvals, curve, logger);
+    const challengeAlpha = computeChallengeAlpha(xiSeed, orderedEvals, nonCommittedPols, curve, logger);
 
     // Calculate all the ri polinomials
     const r = await computeR(pk.f, roots, curve, logger);
@@ -186,11 +188,13 @@ module.exports.verifyOpenings = async function verifyOpenings(vk, commits, evalu
     // Calculate the xiSeed from all the committed polynomials
     const xiSeed =  options.xiSeed ? curve.Fr.e(options.xiSeed) : computeChallengeXiSeed(vk.f.sort((a,b) => a.index > b.index ? 1 : -1).map(fi => fi.commit), curve);
 
+    const nonCommittedPols = options.nonCommittedPols ? options.nonCommittedPols : [];
+
     // Order the evaluations. It is important to keep this order to then be consistant with the solidity verifier
     const orderedEvals = getOrderedEvals(vk.f, evaluations);
 
     // Calculate challenge alpha using all the evaluations
-    const challengeAlpha = computeChallengeAlpha(xiSeed, orderedEvals, curve, logger);
+    const challengeAlpha = computeChallengeAlpha(xiSeed, orderedEvals, nonCommittedPols, curve, logger);
 
     // Calculate the roots of all the fi
     const roots = calculateRoots(vk, xiSeed, curve, logger);

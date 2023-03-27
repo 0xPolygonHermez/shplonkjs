@@ -58,6 +58,15 @@ contract ShPlonkVerifier {
 <% count += 32 -%>
 <%  } -%>
 
+<% if(nonCommittedPols.length > 0) { -%>
+<% let proofCounter = 0; -%>
+    // Proof memory data
+<%  for(let i = 0; i < nonCommittedPols.length; ++i) { -%>
+    uint16 constant pEval_<%- nonCommittedPols[i] %> = <%- proofCounter %>;
+<% proofCounter += 32 -%>
+<%  } -%>
+<%  } -%>
+
     // Memory data
     // Challenges
     uint16 constant pY      = 0;
@@ -137,11 +146,15 @@ contract ShPlonkVerifier {
     uint16 constant lastMem = <%- pLastMem %>;
 
 <%  let nBytesProof = (vk.f.filter(fi => fi.stages.length !== 1 || fi.stages[0].stage !== 0).length + 2) * 2 + orderedEvals.length -%>
+<%  let extraParams = "" -%>
 <%  if(xiSeed) { -%>
-    function verifyProof(bytes32[<%- nBytesProof %>] calldata proof, bytes32 challengeXiSeed) public view returns (bool) {
-<%  } else { -%>
-    function verifyProof(bytes32[<%- nBytesProof %>] calldata proof) public view returns (bool) {
-<% } -%> 
+<%    extraParams += ", bytes32 challengeXiSeed" -%>
+<%  } -%>
+<%  if(nonCommittedPols.length > 0) { -%>
+<%    extraParams += `, bytes32[${nonCommittedPols.length}] memory nonCommittedPols` -%>
+<%  } -%>
+
+    function verifyProof(bytes32[<%- nBytesProof %>] calldata proof <%- extraParams %>) public view returns (bool) {
         assembly {
             // Computes the inverse of an array of values
             // See https://vitalik.ca/general/2018/07/21/starks_part_3.html in section where explain fields operations
@@ -361,7 +374,7 @@ contract ShPlonkVerifier {
 <%  for(let i = 0; i < vk.f.length; ++i) { -%>
 <%      if(vk.f[i].openingPoints.length === 1) { -%>
 <%  let wName = vk.f[i].openingPoints[0] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}` -%>
-            function computeR<%- i %>(pMem) {
+            function computeR<%- i %>( pMem <%- nonCommittedPols.length > 0 && nonCommittedPols.some(r=> vk.f[i].pols.includes(r)) ? ",pNonCommittedPols" : "" %>) {
                 let res 
                 let root
                 let acc
@@ -375,7 +388,10 @@ contract ShPlonkVerifier {
 
 <%  for(let j = 0; j < vk.f[i].pols.length; ++j) { -%> 
 <%  const wPower = vk.f[i].openingPoints[0] === 0 ? '' : vk.f[i].openingPoints[0] === 1 ? 'w' : `w${vk.f[i].openingPoints[0]}` -%>
-                    acc := addmod(acc, mulmod(calldataload(pEval_<%- vk.f[i].pols[j] + wPower %>), accRoot, q), q)
+<%  const evalPos = nonCommittedPols.length === 0 || !nonCommittedPols.includes(vk.f[i].pols[j] + wPower) 
+        ? `calldataload(pEval_${vk.f[i].pols[j] + wPower})` 
+        :  `mload(add(pNonCommittedPols, pEval_${vk.f[i].pols[j] + wPower}))`-%>  
+                    acc := addmod(acc, mulmod(<%- evalPos %>, accRoot, q), q)
                     accRoot := mulmod(accRoot, root, q)
 <% } -%>
                     lagrange := mload(add(pMem, pLagrange<%- wName %>_<%- k %>))
@@ -388,7 +404,7 @@ contract ShPlonkVerifier {
             }
 
 <%      } else { -%>
-            function computeR<%- i %>(pMem) {
+            function computeR<%- i %>( pMem <%- nonCommittedPols.length > 0 && nonCommittedPols.some(r=> vk.f[i].pols.includes(r)) ? ",pNonCommittedPols" : "" %>) {
                 let res 
                 let root
                 let acc
@@ -404,7 +420,10 @@ contract ShPlonkVerifier {
                         accRoot := 1
 <%  for(let j = 0; j < vk.f[i].pols.length; ++j) { -%> 
 <%  const wPower = vk.f[i].openingPoints[k] === 0 ? '' : vk.f[i].openingPoints[k] === 1 ? 'w' : `w${vk.f[i].openingPoints[k]}` -%>
-                        acc := addmod(acc, mulmod(calldataload(pEval_<%- vk.f[i].pols[j] + wPower %>), accRoot, q), q)
+<%  const evalPos = nonCommittedPols.length === 0 || !nonCommittedPols.includes(vk.f[i].pols[j] + wPower) 
+        ? `calldataload(pEval_${vk.f[i].pols[j] + wPower})` 
+        :  `mload(add(pNonCommittedPols, pEval_${vk.f[i].pols[j] + wPower}))`-%>  
+                        acc := addmod(acc, mulmod(<%- evalPos %>, accRoot, q), q)
                         accRoot := mulmod(accRoot, root, q)
 <% } -%>
 
@@ -611,7 +630,11 @@ contract ShPlonkVerifier {
             computeLagrangeItems(pMem)
 
 <% for(let i = 0; i < vk.f.length; ++i) { -%>
+<% if(nonCommittedPols.length > 0 && nonCommittedPols.some(r=> vk.f[i].pols.includes(r))) { -%>
+            computeR<%- i %>(pMem, nonCommittedPols)
+<% } else { -%>
             computeR<%- i %>(pMem)
+<% } -%>
 <% } -%>
 
             // Compute full batched polynomial commitment [F]_1, group-encoded batch evaluation [E]_1 and the full difference [J]_1

@@ -27,7 +27,7 @@ module.exports.computeChallengeXiSeed = function computeChallengeXiSeed(commits,
  * Compute challenge alpha, which is used to compute W
  * It contains the previous challenge (xiSeed) and all the evaluations
  */
-module.exports.computeChallengeAlpha = function computeChallengeAlpha(xiSeed, orderedEvals, curve, logger) {
+module.exports.computeChallengeAlpha = function computeChallengeAlpha(xiSeed, orderedEvals, nonCommittedPols, curve, logger) {
     // Initialize new transcript
     const transcript = new Keccak256Transcript(curve);
 
@@ -36,7 +36,9 @@ module.exports.computeChallengeAlpha = function computeChallengeAlpha(xiSeed, or
 
     // Add all the ordered evals to the transcript
     for(let i = 0; i < orderedEvals.length; ++i) {
-        transcript.addScalar(orderedEvals[i].evaluation);
+        if(!nonCommittedPols.includes(orderedEvals[i].name)) {
+            transcript.addScalar(orderedEvals[i].evaluation);
+        }
     }
 
     // Calculate the challenge
