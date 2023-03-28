@@ -73,27 +73,33 @@ contract ShPlonkVerifier {
     uint16 constant pAlpha  = 32;
 
     // XiSeeds
-<%  if(!xiSeed) { -%> 
+<%  if(!xiSeed) { -%>
     uint16 constant pXiSeed = 64;
 <% } -%>
 <%  let memC = 96; -%>
-<%  for (let i = 0; i < fiWPowers.length; ++i) { -%>
-    uint16 constant pXiSeed_w<%- fiWPowers[i].degree %> = <%- memC %>;
+<%  let degreesXi = [] -%>
+<%  for (let i = 0; i < vk.f.length; ++i) { -%>
+<%     if(!degreesXi.includes(vk.f[i].pols.length)) { -%>
+<%          degreesXi.push(vk.f[i].pols.length); -%>
+    uint16 constant pXiSeed_w<%- vk.f[i].pols.length %> = <%- memC %>;
 <%      memC += 32; -%>
+<% } -%>
 <% } -%>
 
     // Roots
-<%  for(let i = 0; i < fiWPowers.length; i++) { -%>
-<%      for(let k = 0; k < fiWPowers[i].openingPoints.length; k++) { -%>
-<%          for(let l = 0; l < fiWPowers[i].degree; l++) { -%>
-<%  if(fiWPowers[i].openingPoints[k] === 0) { -%>
-    uint16 constant pw<%- fiWPowers[i].degree %>_<%- l %> = <%- memC %>;
-<%  } else { -%>
-    uint16 constant pw<%- fiWPowers[i].degree %>_<%- fiWPowers[i].openingPoints[k] %>d<%- fiWPowers[i].degree %>_<%- l %> = <%- memC %>;
-<%  } -%>
+<%  let rootsNames = []; -%>
+<%  let vkSorted = [...vk.f].sort((a,b) => a.pols.length - b.pols.length) -%>
+<%  for(let i = 0; i < vkSorted.length; i++) { -%>
+<%      for(let k = 0; k < vkSorted[i].openingPoints.length; k++) { -%>
+<%  let wName = vkSorted[i].openingPoints[k] === 0 ? vkSorted[i].pols.length : `${vkSorted[i].pols.length}_${vkSorted[i].openingPoints[k]}d${vkSorted[i].pols.length}` -%>
+<%  if(!rootsNames.includes(wName)) { -%>
+<%      rootsNames.push(wName); -%>
+<%          for(let l = 0; l < vkSorted[i].pols.length; l++) { -%>
+    uint16 constant pw<%- wName %>_<%- l %> = <%- memC %>;
 <%              memC += 32; -%>
 <%          } -%>
 <%      } -%>
+<%  } -%>
 <%  } -%>
 
     // Lagrange Items
@@ -139,7 +145,6 @@ contract ShPlonkVerifier {
 <%      memC += 32 -%>
 <%      } -%>
 <%  } -%>
-
 
 <% for(let i = 0; i < fiWPowers.length; ++i) { -%>
 <% for(let l = 0; l < fiWPowers[i].diffOpenings.length; ++l) { -%>
@@ -255,29 +260,32 @@ contract ShPlonkVerifier {
             }
 
             function computePowersXi(pMem, xiSeed) {
+<%  const powersXi = degreesXi.map(d => {return {degree: d, power: vk.powerW / d};}).sort((a,b) => a.power - b.power); -%>
                 let initValue := 1
 <% let wCounter = 0 -%>
-<% for (let i = 1; i <= vk.powerW; ++i) { -%>
+<% for (let i = 1; i <= Math.min(vk.powerW, powersXi[powersXi.length - 1].power); ++i) { -%>
                 initValue := mulmod(initValue, xiSeed, q)
-<%      while(fiWPowers[wCounter] && fiWPowers[wCounter].wPower === i) { -%>
-                mstore(add(pMem, pXiSeed_w<%- fiWPowers[wCounter++].degree %>), initValue)
+<%      if(powersXi[wCounter].power === i) { -%>
+                mstore(add(pMem, pXiSeed_w<%- powersXi[wCounter++].degree %>), initValue)
 <%      } -%>
-<%      if(!fiWPowers[wCounter]) break; -%>
 <% } -%>
             }
 
             function computeRoots(pMem) {
                 let initValue
-<%  for(let i = 0; i < fiWPowers.length; ++i) { -%>
-<%          for(let k = 0; k < fiWPowers[i].openingPoints.length; ++k) { -%>
-<%              let val = fiWPowers[i].openingPoints[k] === 0 ? `mload(add(pMem, pXiSeed_w${fiWPowers[i].degree}))` : `mulmod(w${fiWPowers[i].degree}_${fiWPowers[i].openingPoints[k]}d${fiWPowers[i].degree}, mload(add(pMem, pXiSeed_w${fiWPowers[i].degree})),q)` -%>
+<%  rootsNames = []; -%>
+<%  for(let i = 0; i < vk.f.length; ++i) { -%>
+<%          for(let k = 0; k < vk.f[i].openingPoints.length; ++k) { -%>
+<%  let wName = vk.f[i].openingPoints[k] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[k]}d${vk.f[i].pols.length}` -%>
+<%  if(!rootsNames.includes(wName)) { -%>
+<%      rootsNames.push(wName); -%>
+<%              let val = vk.f[i].openingPoints[k] === 0 ? `mload(add(pMem, pXiSeed_w${vk.f[i].pols.length}))` : `mulmod(w${vk.f[i].pols.length}_${vk.f[i].openingPoints[k]}d${vk.f[i].pols.length}, mload(add(pMem, pXiSeed_w${vk.f[i].pols.length})),q)` -%>
                 initValue := <%- val %>
-<%  let wName = fiWPowers[i].openingPoints[k] === 0 ? fiWPowers[i].degree : `${fiWPowers[i].degree}_${fiWPowers[i].openingPoints[k]}d${fiWPowers[i].degree}` -%>
                 mstore( add(pMem, pw<%- wName %>_0),  initValue)
-<%              for(let l = 1; l < fiWPowers[i].degree; ++l) { -%>
-                mstore( add(pMem, pw<%- wName %>_<%- l %>), mulmod(initValue, w<%- fiWPowers[i].degree %>_<%- l %>, q))
+<%              for(let l = 1; l < vk.f[i].pols.length; ++l) { -%>
+                mstore( add(pMem, pw<%- wName %>_<%- l %>), mulmod(initValue, w<%- vk.f[i].pols.length %>_<%- l %>, q))
 <%              } -%>
-
+<%      } -%>
 <%          } -%>
 <%      } -%>
             }
@@ -425,8 +433,6 @@ contract ShPlonkVerifier {
                     acc := addmod(acc, mulmod(<%- evalPos %>, accRoot, q), q)
                     accRoot := mulmod(accRoot, root, q)
 <% } -%>
-<% let kOpening = fiWPowers.find(wi => wi.degree === vk.f[i].pols.length).diffOpenings.map(JSON.stringify).indexOf(JSON.stringify(vk.f[i].openingPoints)) -%>
-
 <% if(extendLoops) { -%>
                     lagrange := mload(add(pMem, pLagrange<%- wName %>_<%- l %>))
                     lagrange := mulmod(lagrange, mload(add(pMem, pLiw<%- `${wName}_${vk.f[i].openingPoints.join("")}` %>Inv_<%- l %>)), q)
@@ -483,7 +489,6 @@ contract ShPlonkVerifier {
 	?  k === 0 ? "i" : `add(i, ${k*vk.f[i].pols.length})`
 	:  k === 0 ? l : l + k*vk.f[i].pols.length  -%> 
                     lagrange := calcLagrangeItem(pMem, <%- addition %>, <%- vk.f[i].pols.length * vk.f[i].openingPoints.length - 1 %>, pY, pw<%- wName0 %>_0)
-<% let kOpening = fiWPowers.find(wi => wi.degree === vk.f[i].pols.length).diffOpenings.map(JSON.stringify).indexOf(JSON.stringify(vk.f[i].openingPoints)) -%>
 <% if(extendLoops) { -%>
                     lagrange := mulmod(lagrange, mload(add(pMem, pLiw<%- `${wName}_${vk.f[i].openingPoints.join("")}` %>Inv_<%- l %>)), q)
 <% } else { -%>
