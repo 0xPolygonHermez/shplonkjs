@@ -156,17 +156,15 @@ module.exports.open = async function open(pk, PTau, polynomials, committedPols, 
     // Calculate challenge Y from W commit
     const challengeY = computeChallengeY(commitW, challengeAlpha, curve, logger);
 
-    // Define an array to store the inverses that will be calculated in the solidity verifier
-    const toInverse = [];
 
     // Calculate Wp
-    const Wp = computeWp(pk.f, r, roots, W, challengeY, challengeAlpha, toInverse, curve, logger);
+    const Wp = computeWp(pk.f, r, roots, W, challengeY, challengeAlpha, curve, logger);
     const commitWp = await Wp.multiExponentiation(PTau);
     commits.Wp = commitWp;
 
     // Add the montgomery batched inverse, which is used to calculate the inverses in 
     // the Solidity verifier, to the evaluations
-    evaluations.inv = getMontgomeryBatchedInverse(pk, roots, toInverse, curve, logger);
+    evaluations.inv = getMontgomeryBatchedInverse(pk, roots, challengeY, curve, logger);
 
     // Return W, Wp, the polynomials evaluations, the xiSeed and the opening points
     return [commits, evaluations, xiSeed];

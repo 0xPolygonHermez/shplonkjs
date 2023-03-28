@@ -134,7 +134,7 @@ exports.computeW = function computeW(f, r, roots, challengeAlpha, openingPoints,
 /**
  * 
  */
-function computeL(F, f, r, roots, challengeY, challengeAlpha, toInverse, curve, logger) {
+function computeL(F, f, r, roots, challengeY, challengeAlpha, curve, logger) {
     if (logger) logger.info("··· Computing L polynomial");
 
     const fPols = f.map(fi => fi.pol);
@@ -148,7 +148,6 @@ function computeL(F, f, r, roots, challengeY, challengeAlpha, toInverse, curve, 
             mulLi = curve.Fr.mul(mulLi, curve.Fr.sub(challengeY, rootsRi[j]));
         }
         mulL.push(mulLi);
-        if(i >= 1) toInverse.push(mulLi);
     }
     
     const preL = new Array(mulL.length);
@@ -195,10 +194,10 @@ function computeL(F, f, r, roots, challengeY, challengeAlpha, toInverse, curve, 
 }
 
 
-exports.computeWp = function computeWp(f, r, roots, W, challengeY, challengeAlpha, toInverse, curve, logger) {
+exports.computeWp = function computeWp(f, r, roots, W, challengeY, challengeAlpha, curve, logger) {
 
     // 1 - Compute L
-    const L = computeL(W, f, r, roots, challengeY, challengeAlpha, toInverse, curve, logger);
+    const L = computeL(W, f, r, roots, challengeY, challengeAlpha, curve, logger);
 
     if (logger) logger.info(`> Computing ZTS2 polynomial`);
 
@@ -232,9 +231,26 @@ function computeLi(toInverse, roots, curve, logger) {
     }
 }
 
-exports.getMontgomeryBatchedInverse = function getMontgomeryBatchedInverse(zkey, roots, toInverse, curve, logger) {
+exports.getMontgomeryBatchedInverse = function getMontgomeryBatchedInverse(zkey, roots, challengeY, curve, logger) {
     if (logger) logger.info(`> Getting Montgomery batched inverse`);
 
+    // Define an array to store the inverses that will be calculated in the solidity verifier
+    const toInverse = [];
+
+    let dens = [];
+    for(let i = 1; i < zkey.f.length; ++i) {
+        let wName = zkey.f[i].openingPoints[0] === 0 ? `${zkey.f[i].pols.length}_${zkey.f[i].openingPoints.join("")}` : `${zkey.f[i].pols.length}_${zkey.f[i].openingPoints[0]}d${zkey.f[i].pols.length}_${zkey.f[i].openingPoints.join("")}`; 
+        if(!dens.includes(wName)) {
+            dens.push(wName);
+            const rootsRi = roots[zkey.f[i].index].flat();
+            let mulLi = curve.Fr.one;
+            for (let j = 0; j < rootsRi.length; j++) {
+                mulLi = curve.Fr.mul(mulLi, curve.Fr.sub(challengeY, rootsRi[j]));
+            }
+            toInverse.push(mulLi);       
+        }
+    }
+    
     let fiWPowers = [];
 
     const degrees = [...new Set(zkey.f.map(fi => fi.pols.length))];

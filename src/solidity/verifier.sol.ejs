@@ -130,10 +130,16 @@ contract ShPlonkVerifier {
 <%  } -%>
 
     // From this point we write all the variables that must compute the inverse using the Montgomery batch inversion
-<%  for(let i = 1; i < vk.f.length; ++i) { -%>
-    uint16 constant pDenH<%- i %> = <%- memC %>;
+<% let dens = [] -%>
+<% for(let i = 1; i < vk.f.length; ++i) { -%>
+<%      let wName = vk.f[i].openingPoints[0] === 0 ? `${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` -%>
+<%      if(!dens.includes(wName)) { -%>
+<%            dens.push(wName) -%>
+    uint16 constant pDenw<%- wName %> = <%- memC %>;
 <%      memC += 32 -%>
+<%      } -%>
 <%  } -%>
+
 
 <% for(let i = 0; i < fiWPowers.length; ++i) { -%>
 <% for(let l = 0; l < fiWPowers[i].diffOpenings.length; ++l) { -%>
@@ -325,17 +331,22 @@ contract ShPlonkVerifier {
             function computeInversions(pMem) {
                 let y := mload(add(pMem, pY))
                 let w
+<% dens = [] -%>
 <% let inversionCounter = 0 -%>
 <% for(let i = 1; i < vk.f.length; ++i) { -%>
+<%      let wNameDen = vk.f[i].openingPoints[0] === 0 ? `${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` -%>    
+<%      if(!dens.includes(wNameDen)) { -%>
                 w := 1
-<%  inversionCounter += 1; -%>
 <% for(let k = 0; k < vk.f[i].openingPoints.length; ++k) { -%>
 <% for(let j = 0; j < vk.f[i].pols.length; ++j) { -%>
+<%              dens.push(wNameDen) -%>
 <%  let wName = vk.f[i].openingPoints[k] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[k]}d${vk.f[i].pols.length}` -%>
                 w := mulmod(w, addmod(y, mod(sub(q, mload(add(pMem, pw<%- wName %>_<%- j %>))), q), q),q)
 <% } -%>
 <% } -%>
-                mstore(add(pMem, pDenH<%- i %>), w)
+<%              inversionCounter += 1; -%>
+                mstore(add(pMem, pDenw<%- wNameDen %>), w)
+<% } -%>
 <% } -%>
 
                 let value
@@ -353,8 +364,13 @@ contract ShPlonkVerifier {
 <% } -%>
 <% } -%>
                 // Execute Montgomery batched inversions of the previous prepared values
+<%  if(vk.f.length > 1) { -%> 
+<%  let firstDenName = vk.f[1].openingPoints[0] === 0 ? `${vk.f[1].pols.length}_${vk.f[1].openingPoints.join("")}` : `${vk.f[1].pols.length}_${vk.f[1].openingPoints[0]}d${vk.f[1].pols.length}_${vk.f[1].openingPoints.join("")}` -%>    
+                inverseArray(add(pMem, <%- `pDenw${firstDenName}` %>), <%- inversionCounter %>)
+<%  } else { -%>
 <%  let firstWName = fiWPowers[0].diffOpenings[0][0] === 0 ? `${fiWPowers[0].degree}_${fiWPowers[0].diffOpenings[0].join("")}` : `${fiWPowers[0].degree}_${fiWPowers[0].diffOpenings[0][0]}d${fiWPowers[0].degree}_${fiWPowers[0].diffOpenings[0]}` -%>
-                inverseArray(add(pMem, <%- vk.f.length > 1 ? "pDenH1" : `pLiw${firstWName}Inv_0` %>), <%- inversionCounter %>)
+                inverseArray(add(pMem, <%- `pLiw${firstWName}Inv_0` %>), <%- inversionCounter %>)
+<%  } -%>
             }
 
             function computeLagrangeItems(pMem) {
@@ -567,7 +583,8 @@ contract ShPlonkVerifier {
                 let accAlpha := 1
 <% for(let i = 1; i < vk.f.length; ++i) { -%>
                 accAlpha := mulmod(accAlpha, alpha, q)
-                mstore(add(pMem, pQuotient<%- i %>), mulmod(accAlpha, mulmod(numerator, mload(add(pMem, pDenH<%- i %>)), q), q))
+<%  let wName = vk.f[i].openingPoints[0] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}` -%>
+                mstore(add(pMem, pQuotient<%- i %>), mulmod(accAlpha, mulmod(numerator, mload(add(pMem, pDenw<%- wName %>_<%- vk.f[i].openingPoints.join("") %>)), q), q))
 <% } -%>
 
                 
