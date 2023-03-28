@@ -166,7 +166,7 @@ module.exports.open = async function open(pk, PTau, polynomials, committedPols, 
 
     // Add the montgomery batched inverse, which is used to calculate the inverses in 
     // the Solidity verifier, to the evaluations
-    evaluations.inv = getMontgomeryBatchedInverse(roots, toInverse, curve, logger);
+    evaluations.inv = getMontgomeryBatchedInverse(pk, roots, toInverse, curve, logger);
 
     // Return W, Wp, the polynomials evaluations, the xiSeed and the opening points
     return [commits, evaluations, xiSeed];

@@ -232,17 +232,36 @@ function computeLi(toInverse, roots, curve, logger) {
     }
 }
 
-exports.getMontgomeryBatchedInverse = function getMontgomeryBatchedInverse(roots, toInverse, curve, logger) {
+exports.getMontgomeryBatchedInverse = function getMontgomeryBatchedInverse(zkey, roots, toInverse, curve, logger) {
     if (logger) logger.info(`> Getting Montgomery batched inverse`);
 
-    //   · denominator needed in step 10 and 11 of the verifier
-    //     toInverse.denH1 & toInverse.denH2  -> Computed in round5, computeL()
+    let fiWPowers = [];
 
-    //   · denominator needed in the verifier when computing L_i^{S0}(X), L_i^{S1}(X) and L_i^{S2}(X)
+    const degrees = [...new Set(zkey.f.map(fi => fi.pols.length))];
 
-    for(let i = 0; i < roots.length; ++i) {
-        computeLi(toInverse, roots[i], curve, logger);
+    for(let i = 0; i < degrees.length; ++i) {
+        let diffOpenings = zkey.f.filter(fi => fi.pols.length === degrees[i]).map(fi => fi.openingPoints);
+        diffOpenings = Array.from(new Set(diffOpenings.map(JSON.stringify)), JSON.parse);
+        const openings = [...new Set(diffOpenings.flat())];
+        const indexes = zkey.f.filter(fi => fi.pols.length === degrees[i]).map(fi => fi.index);
+        fiWPowers.push({degree: degrees[i], openingPoints: openings, index: indexes, diffOpenings})
     }
+
+    fiWPowers = fiWPowers.sort((a, b) => {
+        if(b.degree !== a.degree) {
+            return b.degree - a.degree;
+        } else {
+            return a.openingPoints.length - b.openingPoints.length;
+        }
+    })
+    
+    for(let i = 0; i < fiWPowers.length; ++i) { 
+        for(let j = 0; j < fiWPowers[i].diffOpenings.length; ++j) {
+            const fIndex = zkey.f.find(fi => JSON.stringify(fi.openingPoints) === JSON.stringify(fiWPowers[i].diffOpenings[j]) && fiWPowers[i].degree === fi.pols.length);
+            const liRoots = roots[fIndex.index];
+            computeLi(toInverse, liRoots, curve, logger);
+        }
+    } 
 
     let mulAccumulator = curve.Fr.one;
     for(let i = 0; i < toInverse.length; ++i) {
