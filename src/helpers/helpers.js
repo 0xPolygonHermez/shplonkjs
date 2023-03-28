@@ -103,7 +103,7 @@ function calculateRootsFi(initialOmega, initialValue, degFi, lcm, xiSeed, curve,
 module.exports.calculateRoots = function calculateRoots(zkey, xiSeed, curve, logger) {
 
     const roots = [];
-    const powerW = lcm(Object.keys(zkey).filter(k => k.match(/^w\d$/)).map(wi => wi.slice(1)));
+    const powerW = lcm(Object.keys(zkey).filter(k => k.match(/^w\d+$/)).map(wi => wi.slice(1)));
     for(let i = 0; i < zkey.f.length; ++i) {
         const rootsFi = [];
         const nPols = zkey.f[i].pols.length;

@@ -8,6 +8,8 @@ const { lcm } = require("../utils.js");
 module.exports.exportSolidityVerifier = async function exportSolidityVerifier(fileName, vk, commits, curve, options = {}) {
     const logger = options.logger;
     
+    const extendLoops = options.extendLoops || false;
+
     const nonCommittedPols = options.nonCommittedPols ? options.nonCommittedPols : [];
 
     if (logger) logger.info("FFLONK EXPORT SOLIDITY VERIFIER STARTED");
@@ -60,7 +62,7 @@ module.exports.exportSolidityVerifier = async function exportSolidityVerifier(fi
         fiWPowers[i].lagrangesRequired = lagrangesRequired;
     }
 
-    const powerW = lcm(Object.keys(vk).filter(k => k.match(/^w\d$/)).map(wi => wi.slice(1)));
+    const powerW = lcm(Object.keys(vk).filter(k => k.match(/^w\d+$/)).map(wi => wi.slice(1)));
 
     fiWPowers = fiWPowers.map(fi => {return {degree: fi.degree, openingPoints: fi.openingPoints, wPower: powerW / fi.degree, index: fi.index, diffOpenings: fi.diffOpenings, lagrangesRequired: fi.lagrangesRequired}; }).sort((a, b) => a.wPower >= b.wPower ? 1 : -1);
 
@@ -79,6 +81,7 @@ module.exports.exportSolidityVerifier = async function exportSolidityVerifier(fi
         fiWPowers,
         xiSeed: options.xiSeed,
         nonCommittedPols,
+        extendLoops: true,
     };
     if (logger) logger.info("FFLONK EXPORT SOLIDITY VERIFIER FINISHED");
 

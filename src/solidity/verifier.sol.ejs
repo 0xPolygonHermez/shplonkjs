@@ -360,11 +360,13 @@ contract ShPlonkVerifier {
 <%  let wName0 = fiWPowers[i].lagrangesRequired[0] === 0 ? fiWPowers[i].degree : `${fiWPowers[i].degree}_${fiWPowers[i].lagrangesRequired[0]}d${fiWPowers[i].degree}` -%>
 <%      for(let k = 0; k < fiWPowers[i].lagrangesRequired.length; k++) { -%>
 <%  let wName = fiWPowers[i].lagrangesRequired[k] === 0 ? fiWPowers[i].degree : `${fiWPowers[i].degree}_${fiWPowers[i].lagrangesRequired[k]}d${fiWPowers[i].degree}` -%>
-<%  if(fiWPowers[i].diffOpenings.filter(o => o.length === 1 && o[0] === fiWPowers[i].lagrangesRequired[k]).length > 0) { -%>
-<%          for(let l = 0; l < fiWPowers[i].degree; l++) { -%>
-                lagrange := calcLagrangeItem(pMem,<%- l %>, <%- fiWPowers[i].degree - 1%>, pY, pw<%- wName %>_0)
-                mstore(add(pMem, pLagrange<%- wName %>_<%- l %>), lagrange)
+<%          for(let m = 0; m < fiWPowers[i].diffOpenings.length; ++m) { -%> 
+<%  if(fiWPowers[i].diffOpenings[m].length === 1 && fiWPowers[i].diffOpenings[m][0] === fiWPowers[i].lagrangesRequired[k]) { -%>
+<%              for(let l = 0; l < fiWPowers[i].degree; l++) { -%>
+                    lagrange := calcLagrangeItem(pMem,<%- l %>, <%- fiWPowers[i].degree - 1%>, pY, pw<%- wName %>_0)
+                    mstore(add(pMem, pLagrange<%- wName %>_<%- l %>), lagrange)
 
+<%              } -%>
 <%          } -%>
 <%      } -%>
 <%      } -%>
@@ -374,68 +376,104 @@ contract ShPlonkVerifier {
 <%  for(let i = 0; i < vk.f.length; ++i) { -%>
 <%      if(vk.f[i].openingPoints.length === 1) { -%>
 <%  let wName = vk.f[i].openingPoints[0] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}` -%>
-            function computeR<%- i %>( pMem <%- nonCommittedPols.length > 0 && nonCommittedPols.some(r=> vk.f[i].pols.includes(r)) ? ",pNonCommittedPols" : "" %>) {
-                let res 
-                let root
-                let acc
-                let accRoot
-                let lagrange
-<% for(let k = 0; k < vk.f[i].pols.length; ++k) { -%>
-
-                    root := mload(add(pMem, pw<%- wName %>_<%- k %>))
-                    acc := 0
-                    accRoot := 1
-
-<%  for(let j = 0; j < vk.f[i].pols.length; ++j) { -%> 
 <%  const wPower = vk.f[i].openingPoints[0] === 0 ? '' : vk.f[i].openingPoints[0] === 1 ? 'w' : `w${vk.f[i].openingPoints[0]}` -%>
+            function computeR<%- i %>( pMem <%- nonCommittedPols.length > 0 && nonCommittedPols.some(r=> vk.f[i].pols.includes(r)) ? ",pNonCommittedPols" : "" %>) {
+                let res
+<% if(!extendLoops) { -%>
+                for { let i := 0 } lt(i, <%- vk.f[i].pols.length %>) { i := add(i, 1) } {
+ <% } -%> 
+                    let root
+                    let acc
+                    let accRoot
+                    let lagrange
+<% let extendLoopLength = !extendLoops ? 1 : vk.f[i].pols.length -%>
+<% for(let l = 0; l < extendLoopLength; ++l) { -%>
+
+<%  const evalPos0 = nonCommittedPols.length === 0 || !nonCommittedPols.includes(vk.f[i].pols[0] + wPower) 
+        ? `calldataload(pEval_${vk.f[i].pols[0] + wPower})` 
+        : `mload(add(pNonCommittedPols, pEval_${vk.f[i].pols[0] + wPower}))`-%> 
+<% if(!extendLoops) { -%>
+                    root := mload(add(pMem, add(pw<%- wName %>_0, mul(i,32))))
+<% } else { -%>
+                    root := mload(add(pMem, pw<%- wName %>_<%- l %>))   
+<% } -%>
+                    acc := <%- evalPos0 %>
+                    accRoot := root
+<%  for(let j = 1; j < vk.f[i].pols.length; ++j) { -%> 
 <%  const evalPos = nonCommittedPols.length === 0 || !nonCommittedPols.includes(vk.f[i].pols[j] + wPower) 
         ? `calldataload(pEval_${vk.f[i].pols[j] + wPower})` 
         :  `mload(add(pNonCommittedPols, pEval_${vk.f[i].pols[j] + wPower}))`-%>  
                     acc := addmod(acc, mulmod(<%- evalPos %>, accRoot, q), q)
                     accRoot := mulmod(accRoot, root, q)
 <% } -%>
-                    lagrange := mload(add(pMem, pLagrange<%- wName %>_<%- k %>))
-                    lagrange := mulmod(lagrange, mload(add(pMem, pLiS<%- i %>Inv_<%- k %>)), q)
+                   
+<% if(extendLoops) { -%>
+                    lagrange := mload(add(pMem, pLagrange<%- wName %>_<%- l %>))
+                    lagrange := mulmod(lagrange, mload(add(pMem, pLiS<%- i %>Inv_<%- l %>)), q)
+<% } else { -%>
+                    lagrange := mload(add(pMem, add(pLagrange<%- wName %>_0, mul(i, 32))))
+                    lagrange := mulmod(lagrange, mload(add(pMem, add(pLiS<%- i %>Inv_0, mul(i, 32)))), q)
+<% } -%>                    
 
                     res := addmod(res, mulmod(acc, lagrange, q), q)
-                    
+            
+<% if(!extendLoops) { -%>
+                }
 <% } -%>
-                mstore(add(pMem,pR<%-i %>), res)
+<% } -%>
+                    mstore(add(pMem,pR<%-i %>), res)
             }
 
 <%      } else { -%>
             function computeR<%- i %>( pMem <%- nonCommittedPols.length > 0 && nonCommittedPols.some(r=> vk.f[i].pols.includes(r)) ? ",pNonCommittedPols" : "" %>) {
                 let res 
-                let root
-                let acc
-                let accRoot
-                let lagrange
-<% for(let l = 0; l < vk.f[i].pols.length; ++l) { -%>
-                    
+<% if(!extendLoops) { -%>
+		        for { let i := 0 } lt(i, <%- vk.f[i].pols.length %>) { i := add(i, 1) } {
+<% } -%>
+                    let root
+                    let acc
+                    let accRoot
+                    let lagrange
+<% let extendLoopLength = !extendLoops ? 1 : vk.f[i].pols.length -%>
+<% for(let l = 0; l < extendLoopLength; ++l) { -%>
+
 <%  let wName0 = vk.f[i].openingPoints[0] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}` -%>
 <%  for(let k = 0; k < vk.f[i].openingPoints.length; ++k) { -%>
 <%  let wName = vk.f[i].openingPoints[k] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[k]}d${vk.f[i].pols.length}` -%>
-                        root := mload(add(pMem, pw<%- wName %>_<%- l %>))
-                        acc := 0
-                        accRoot := 1
-<%  for(let j = 0; j < vk.f[i].pols.length; ++j) { -%> 
 <%  const wPower = vk.f[i].openingPoints[k] === 0 ? '' : vk.f[i].openingPoints[k] === 1 ? 'w' : `w${vk.f[i].openingPoints[k]}` -%>
+<%  const evalPos0 = nonCommittedPols.length === 0 || !nonCommittedPols.includes(vk.f[i].pols[0] + wPower) 
+        ? `calldataload(pEval_${vk.f[i].pols[0] + wPower})` 
+        :  `mload(add(pNonCommittedPols, pEval_${vk.f[i].pols[0] + wPower}))`-%> 
+<% if(!extendLoops) { -%>
+                    root := mload(add(pMem, add(pw<%- wName %>_0, mul(i,32))))
+<% } else { -%>
+                    root := mload(add(pMem, pw<%- wName %>_<%- l %>))   
+<% } -%>
+                    acc := <%- evalPos0 %>
+                    accRoot := root
+<%  for(let j = 1; j < vk.f[i].pols.length; ++j) { -%>
 <%  const evalPos = nonCommittedPols.length === 0 || !nonCommittedPols.includes(vk.f[i].pols[j] + wPower) 
         ? `calldataload(pEval_${vk.f[i].pols[j] + wPower})` 
-        :  `mload(add(pNonCommittedPols, pEval_${vk.f[i].pols[j] + wPower}))`-%>  
-                        acc := addmod(acc, mulmod(<%- evalPos %>, accRoot, q), q)
-                        accRoot := mulmod(accRoot, root, q)
+        :  `mload(add(pNonCommittedPols, pEval_${vk.f[i].pols[j] + wPower}))`-%>
+                    acc := addmod(acc, mulmod(<%- evalPos %>, accRoot, q), q)
+                    accRoot := mulmod(accRoot, root, q)
 <% } -%>
 
-<% const addition = k === 0 ? l : l + k*vk.f[i].pols.length; -%>
-                        lagrange := calcLagrangeItem(pMem, <%- addition %>, <%- vk.f[i].pols.length * vk.f[i].openingPoints.length - 1 %>, pY, pw<%- wName0 %>_0)
-                        lagrange := mulmod(lagrange, mload(add(pMem, pLiS<%- i %>Inv_<%- k*vk.f[i].pols.length + l %>)), q)
-
-                        res := addmod(res, mulmod(acc, lagrange, q), q)
-
-<% } -%>    
+<% const addition = !extendLoops 
+	?  k === 0 ? "i" : `add(i, ${k*vk.f[i].pols.length})`
+	:  k === 0 ? l : l + k*vk.f[i].pols.length  -%> 
+                    lagrange := calcLagrangeItem(pMem, <%- addition %>, <%- vk.f[i].pols.length * vk.f[i].openingPoints.length - 1 %>, pY, pw<%- wName0 %>_0)
+<% if(extendLoops) { -%>
+                    lagrange := mulmod(lagrange, mload(add(pMem, pLiS<%- i %>Inv_<%- k*vk.f[i].pols.length + l %>)), q)
+<% } else { -%>
+ 	                lagrange := mulmod(lagrange, mload(add(pMem, add(pLiS<%- i %>Inv_<%- k*vk.f[i].pols.length %>, mul(i, 32)))), q)
 <% } -%>
-
+                    res := addmod(res, mulmod(acc, lagrange, q), q)
+<% } -%>
+<% if(!extendLoops) { -%>
+                }
+<% } -%>
+<% } -%>
                 mstore(add(pMem,pR<%-i %>), res)
             }
 <%      } -%>

@@ -48,7 +48,7 @@ exports.calculateEvaluations = function calculateEvaluations(pk, polynomials, xi
     const openingPoints = []; 
 
     // Firstly, calculate challenge xi, which will be xiSeed ^ lcm(f)
-    const powerW = lcm(Object.keys(pk).filter(k => k.match(/^w\d$/)).map(wi => wi.slice(1)));
+    const powerW = lcm(Object.keys(pk).filter(k => k.match(/^w\d+$/)).map(wi => wi.slice(1)));
 
     let challengeXi = curve.Fr.exp(xiSeed, powerW);
     openingPoints.push(challengeXi);
