@@ -151,7 +151,7 @@ describe("Shplonk test suite", function () {
 
         const ptauFilename = path.join("test", "powersOfTau15_final.ptau");
 
-        await shPlonkTest(config, ptauFilename, {tmpName: "pilfflonk"});
+        await shPlonkTest(config, ptauFilename, {tmpName: "pilfflonk", extendLoops: true});
 
     })
 
@@ -189,7 +189,7 @@ describe("Shplonk test suite", function () {
                 "openBy": 'stage',
             };
     
-            await shPlonkTest(config, ptauFilename, {tmpName: "fflonk"});
+            await shPlonkTest(config, ptauFilename, {tmpName: "fflonk", extendLoops: true});
         });
 
         it("shplonk full test with scalar multiplications specified by stage (fflonk)", async () => {
@@ -225,7 +225,7 @@ describe("Shplonk test suite", function () {
                 "openBy": 'stage',
             };
     
-            await shPlonkTest(config, ptauFilename, {tmpName: "fflonk2"});
+            await shPlonkTest(config, ptauFilename, {tmpName: "fflonk2", extendLoops: true});
         });
 
         it("shplonk full test with scalar multiplications specified by total number", async () => {
@@ -265,7 +265,7 @@ describe("Shplonk test suite", function () {
                 "openBy": 'stage',
             };
     
-            await shPlonkTest(config, ptauFilename, {tmpName: "test3"});
+            await shPlonkTest(config, ptauFilename, {tmpName: "test3", extendLoops: true});
         });
 
         it("shplonk full test with specifying some polynomials that are not part of the proof", async () => {
@@ -305,7 +305,7 @@ describe("Shplonk test suite", function () {
                 "openBy": 'stage',
             };
     
-            await shPlonkTest(config, ptauFilename, {tmpName: "testNonCommitted", nonCommittedPols: ["T0", "T1", "T2"]});
+            await shPlonkTest(config, ptauFilename, {tmpName: "testNonCommitted", nonCommittedPols: ["T0", "T1", "T2"], extendLoops: true});
         });
 
         it("shplonk full test specifying xiSeed from outside the protocol", async () => {
@@ -346,7 +346,7 @@ describe("Shplonk test suite", function () {
                 "openBy": 'stage',
             };
     
-            await shPlonkTest(config, ptauFilename, {xiSeed: F.random(), tmpName: "testXiSeed"});
+            await shPlonkTest(config, ptauFilename, {xiSeed: F.random(), tmpName: "testXiSeed", extendLoops: true});
         });
     });
 
@@ -378,7 +378,7 @@ describe("Shplonk test suite", function () {
                 "openBy": 'openingPoints',
             };
 
-            await shPlonkTest(config, ptauFilename, {tmpName: "test4"});
+            await shPlonkTest(config, ptauFilename, {tmpName: "test4", extendLoops: true});
         });
 
         it("shplonk full test with scalar multiplications specified by opening points (fflonk)", async () => {
@@ -414,7 +414,7 @@ describe("Shplonk test suite", function () {
                 "openBy": 'openingPoints',
             };
     
-            await shPlonkTest(config, ptauFilename, {tmpName:"fflonk3"});
+            await shPlonkTest(config, ptauFilename, {tmpName:"fflonk3", extendLoops: true});
         });
 
 
@@ -451,7 +451,7 @@ describe("Shplonk test suite", function () {
                 "openBy": 'openingPoints',
             };
     
-            await shPlonkTest(config, ptauFilename, {tmpName: "fflonk4"});
+            await shPlonkTest(config, ptauFilename, {tmpName: "fflonk4", extendLoops: true});
         });
 
         it("shplonk full basic test with scalar multiplications specified by total number", async () => {
@@ -485,7 +485,7 @@ describe("Shplonk test suite", function () {
                 "openBy": 'openingPoints',
             };
     
-            await shPlonkTest(config, ptauFilename, {tmpName: "test6"});
+            await shPlonkTest(config, ptauFilename, {tmpName: "test6", extendLoops: true});
         });
     });
 

@@ -81,7 +81,7 @@ module.exports.exportSolidityVerifier = async function exportSolidityVerifier(fi
         fiWPowers,
         xiSeed: options.xiSeed,
         nonCommittedPols,
-        extendLoops: true,
+        extendLoops,
     };
     if (logger) logger.info("FFLONK EXPORT SOLIDITY VERIFIER FINISHED");
 

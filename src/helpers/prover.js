@@ -251,33 +251,15 @@ exports.getMontgomeryBatchedInverse = function getMontgomeryBatchedInverse(zkey,
         }
     }
     
-    let fiWPowers = [];
-
-    const degrees = [...new Set(zkey.f.map(fi => fi.pols.length))];
-
-    for(let i = 0; i < degrees.length; ++i) {
-        let diffOpenings = zkey.f.filter(fi => fi.pols.length === degrees[i]).map(fi => fi.openingPoints);
-        diffOpenings = Array.from(new Set(diffOpenings.map(JSON.stringify)), JSON.parse);
-        const openings = [...new Set(diffOpenings.flat())];
-        const indexes = zkey.f.filter(fi => fi.pols.length === degrees[i]).map(fi => fi.index);
-        fiWPowers.push({degree: degrees[i], openingPoints: openings, index: indexes, diffOpenings})
+    let liNames = [];
+    for(let i = 0; i < zkey.f.length; ++i) {
+        let wName = zkey.f[i].openingPoints[0] === 0 ? `${zkey.f[i].pols.length}_${zkey.f[i].openingPoints.join("")}` : `${zkey.f[i].pols.length}_${zkey.f[i].openingPoints[0]}d${zkey.f[i].pols.length}_${zkey.f[i].openingPoints.join("")}`
+        if(!liNames.includes(wName)) {
+            liNames.push(wName);
+            const rootsRi = roots[zkey.f[i].index];
+            computeLi(toInverse, rootsRi, curve, logger);
+        }
     }
-
-    fiWPowers = fiWPowers.sort((a, b) => {
-        if(b.degree !== a.degree) {
-            return b.degree - a.degree;
-        } else {
-            return a.openingPoints.length - b.openingPoints.length;
-        }
-    })
-    
-    for(let i = 0; i < fiWPowers.length; ++i) { 
-        for(let j = 0; j < fiWPowers[i].diffOpenings.length; ++j) {
-            const fIndex = zkey.f.find(fi => JSON.stringify(fi.openingPoints) === JSON.stringify(fiWPowers[i].diffOpenings[j]) && fiWPowers[i].degree === fi.pols.length);
-            const liRoots = roots[fIndex.index];
-            computeLi(toInverse, liRoots, curve, logger);
-        }
-    } 
 
     let mulAccumulator = curve.Fr.one;
     for(let i = 0; i < toInverse.length; ++i) {
