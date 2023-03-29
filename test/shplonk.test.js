@@ -46,7 +46,7 @@ describe("Shplonk test suite", function () {
 
         const stages = [...new Set(config.polDefs.flat().map(p => p.stage))];
         for(let i = 0; i < stages.length; ++i) {
-            const commitsStage = await commit(stages[i], zkey, ctx, PTau, true, curve);        
+            const commitsStage = await commit(stages[i], zkey, ctx, PTau, curve, {multiExp: true});        
             for(let j = 0; j < commitsStage.length; ++j) {
                 committedPols[`${commitsStage[j].index}`] = {commit: commitsStage[j].commit, pol: commitsStage[j].pol}
             }
@@ -76,9 +76,9 @@ describe("Shplonk test suite", function () {
         await shPlonkVerifier.deployed();
 
         if(xiSeed || nonCommittedPols.length > 0) {
-            expect(await shPlonkVerifier.verifyProof(...inputs)).to.equal(true);
+            expect(await shPlonkVerifier.verifyCommitments(...inputs)).to.equal(true);
         } else {
-            expect(await shPlonkVerifier.verifyProof(inputs)).to.equal(true);
+            expect(await shPlonkVerifier.verifyCommitments(inputs)).to.equal(true);
         }
 
         

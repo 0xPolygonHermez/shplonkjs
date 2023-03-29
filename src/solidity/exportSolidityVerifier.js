@@ -40,31 +40,7 @@ module.exports.exportSolidityVerifier = async function exportSolidityVerifier(fi
         }
     }
 
-    const degrees = [...new Set(vk.f.map(fi => fi.pols.length))];
-
-    let fiWPowers = [];
-
-    for(let i = 0; i < degrees.length; ++i) {
-        let diffOpenings = vk.f.filter(fi => fi.pols.length === degrees[i]).map(fi => fi.openingPoints);
-        diffOpenings = Array.from(new Set(diffOpenings.map(JSON.stringify)), JSON.parse);
-        const openings = [...new Set(diffOpenings.flat())];
-        const indexes = vk.f.filter(fi => fi.pols.length === degrees[i]).map(fi => fi.index);
-        fiWPowers.push({degree: degrees[i], openingPoints: openings, index: indexes, diffOpenings})
-    }
-    
-    for(let i = 0; i < fiWPowers.length; ++i) {
-        let lagrangesRequired = [];
-        for(let j = 0; j < fiWPowers[i].diffOpenings.length; ++j) {
-            if(!lagrangesRequired.includes(fiWPowers[i].diffOpenings[j][0])) {
-                lagrangesRequired.push(fiWPowers[i].diffOpenings[j][0]);
-            }
-        }
-        fiWPowers[i].lagrangesRequired = lagrangesRequired;
-    }
-
     const powerW = lcm(Object.keys(vk).filter(k => k.match(/^w\d+$/)).map(wi => wi.slice(1)));
-
-    fiWPowers = fiWPowers.map(fi => {return {degree: fi.degree, openingPoints: fi.openingPoints, wPower: powerW / fi.degree, index: fi.index, diffOpenings: fi.diffOpenings, lagrangesRequired: fi.lagrangesRequired}; }).sort((a, b) => a.wPower >= b.wPower ? 1 : -1);
 
     vk.powerW = powerW;
     vk.X_2 = curve.G2.toObject(vk.X_2);
@@ -78,7 +54,6 @@ module.exports.exportSolidityVerifier = async function exportSolidityVerifier(fi
         vk,
         orderedEvals: orderedEvals.map(e => e.name),
         ws,
-        fiWPowers,
         xiSeed: options.xiSeed,
         nonCommittedPols,
         extendLoops,

@@ -5,7 +5,10 @@ const { lcm } = require("./utils.js");
 const { computeRootWi, computeWi, getFByStage, getFByOpeningPoints, getPowersOfTau, getPowersW } = require("./helpers/setup.js");
 const {CPolynomial} = require("./polynomial/cpolynomial.js");
 
-module.exports.setup = async function setup(config, ptauFilename, logger) {
+module.exports.setup = async function setup(config, ptauFilename, options = { }) {
+
+    const logger = options.logger;
+
     //fi polynomials can only be created either by stage or by opening points.
     if(!["stage", "openingPoints"].includes(config.openBy)) throw new Error(`${config.openBy} is not valid. You can only openBy polynomials by "stage" or "openingPoints".`);
     
@@ -44,7 +47,11 @@ module.exports.setup = async function setup(config, ptauFilename, logger) {
 }
 
 
-module.exports.commit = async function commit(stage, pk, polynomials, PTau, multiExp, curve, logger) {
+module.exports.commit = async function commit(stage, pk, polynomials, PTau, curve, options = { }) {
+
+    const logger = options.logger;
+    const multiExp = options.multiExp || false;
+
     if (logger) logger.info(`> Commiting polynomials for stage ${stage}`);
 
     // Sort f by index
