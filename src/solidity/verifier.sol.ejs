@@ -58,15 +58,6 @@ contract ShPlonkVerifier {
 <% count += 32 -%>
 <%  } -%>
 
-<% if(nonCommittedPols.length > 0) { -%>
-<% let commitsCounter = 0; -%>
-    // Commits memory data
-<%  for(let i = 0; i < nonCommittedPols.length; ++i) { -%>
-    uint16 constant pEval_<%- nonCommittedPols[i] %> = <%- commitsCounter %>;
-<% commitsCounter += 32 -%>
-<%  } -%>
-<%  } -%>
-
     // Memory data
     // Challenges
     uint16 constant pY      = 0;
@@ -163,6 +154,15 @@ contract ShPlonkVerifier {
 <% } -%>
 <% } -%>
 
+<% if(nonCommittedPols.length > 0) { -%>
+<% let commitsCounter = 0; -%>
+    // Commits memory data
+<%  for(let i = 0; i < nonCommittedPols.length; ++i) { -%>
+    uint16 constant pEval_<%- nonCommittedPols[i] %> = <%-commitsCounter %>;
+<% commitsCounter += 32 -%>
+<%  } -%>
+<%  } -%>
+
 <%  let pLastMem = memC -%>
     uint16 constant lastMem = <%- pLastMem %>;
 
@@ -186,11 +186,22 @@ contract ShPlonkVerifier {
                 let acc := mload(add(pMem,<%- inversionArray[0] %>))       // Read the first element
                 mstore(pAux, acc)
 
+<%  if(extendLoops) { -%>               
 <%  for(let i = 1; i < inversionArray.length; ++i) { -%>
                 pAux := add(pAux, 32)
                 acc := mulmod(acc, mload(add(pMem, <%- inversionArray[i] %>)), q)
                 mstore(pAux, acc)
 
+<% } -%>
+<% } else { -%>
+                let pIn := add(pMem,<%- inversionArray[0] %>)
+                for { let j := 1 } lt(j, <%- inversionArray.length %>) { j := add(j, 1)} 
+                {
+                    pAux := add(pAux, 32)
+                    pIn := add(pIn, 32)
+                    acc := mulmod(acc, mload(pIn), q)
+                    mstore(pAux, acc)
+                }
 <% } -%>
                 let inv := calldataload(pEval_inv)
 
@@ -202,12 +213,23 @@ contract ShPlonkVerifier {
 
                 acc := inv
 
+<%  if(extendLoops)  { -%>
 <%  for(let i = inversionArray.length - 1; i > 0; --i) { -%>
                 pAux := sub(pAux, 32)
                 inv := mulmod(acc, mload(pAux), q)
                 acc := mulmod(acc, mload(add(pMem, <%- inversionArray[i] %>)), q)
                 mstore(add(pMem, <%- inversionArray[i] %>), inv)
 <% } -%>
+<%  } else { -%>
+                for { let j := <%- inversionArray.length - 1 %>} gt(j, 0) { j := sub(j, 1)} {
+                    pAux := sub(pAux, 32)
+                    inv := mulmod(acc, mload(pAux), q)
+                    acc := mulmod(acc, mload(pIn), q)
+                    mstore(pIn, inv)
+                    pIn := sub(pIn, 32)
+                }
+<% } -%>
+
                 mstore(add(pMem, <%- inversionArray[0] %>), acc)
             }
             
@@ -282,50 +304,69 @@ contract ShPlonkVerifier {
             }
 <% let challengesFunctionInput = xiSeed ? "pMem, xiSeed" : "pMem" -%>       
             function computeChallenges(<%- challengesFunctionInput %>) {
+                let mIn := mload(0x40)
 <%  if(!xiSeed) { -%>
                 // Compute xiSeed
 <%  for(let i = 0; i < vk.f.length; ++i) { -%>
 <%  if(vk.f[i].stages.length !== 1 || vk.f[i].stages[0].stage !== 0) { -%>
-                mstore(add(lastMem,<%- i * 64 %>), calldataload(pf<%- vk.f[i].index %>))
-                mstore(add(lastMem,<%- i * 64 + 32 %>), calldataload(add(pf<%- vk.f[i].index %>, 32)))
+                mstore(add(mIn,<%- i * 64 %>), calldataload(pf<%- vk.f[i].index %>))
+                mstore(add(mIn,<%- i * 64 + 32 %>), calldataload(add(pf<%- vk.f[i].index %>, 32)))
 <% } else { -%>
-                mstore(add(lastMem,<%- i * 64 %>), f<%- vk.f[i].index %>x)
-                mstore(add(lastMem,<%- i * 64 + 32 %>), f<%- vk.f[i].index %>y)
+                mstore(add(mIn,<%- i * 64 %>), f<%- vk.f[i].index %>x)
+                mstore(add(mIn,<%- i * 64 + 32 %>), f<%- vk.f[i].index %>y)
 <%  } -%>
 <%  } -%>
-                let xiSeed := mod(keccak256(lastMem, <%- vk.f.length * 64 %>), q)
+                let xiSeed := mod(keccak256(mIn, <%- vk.f.length * 64 %>), q)
                 mstore(add(pMem, pXiSeed), xiSeed)
 <% } -%>
 
                 // Compute challenge.alpha
-                mstore(lastMem, xiSeed)
-                calldatacopy(add(lastMem, 32), pEval_<%- orderedEvals[0] %>, <%- (orderedEvals.length - 1) * 32 %>)
+                mstore(mIn, xiSeed)
+                calldatacopy(add(mIn, 32), pEval_<%- orderedEvals[0] %>, <%- (orderedEvals.length - 1) * 32 %>)
 
-                let alpha := mod(keccak256(lastMem, <%- orderedEvals.length * 32 %>), q)
+                let alpha := mod(keccak256(mIn, <%- orderedEvals.length * 32 %>), q)
                 mstore( add(pMem, pAlpha), alpha)
 
-                mstore(lastMem, alpha)
-                mstore(add(lastMem, 32), calldataload(pW))
-                mstore(add(lastMem, 64), calldataload(add(pW, 32)))
+                mstore(mIn, alpha)
+                mstore(add(mIn, 32), calldataload(pW))
+                mstore(add(mIn, 64), calldataload(add(pW, 32)))
 
                 // Compute challenge.y
-                mstore( add(pMem, pY), mod(keccak256(lastMem, 96), q))
+                mstore( add(pMem, pY), mod(keccak256(mIn, 96), q))
             }
 
+<%  const lagrangeSizes = [...new Set(vk.f.map(fi => fi.pols.length * fi.openingPoints.length).filter(s => s > 2))]; -%>
+<%  for(let i = 0; i < lagrangeSizes.length; i++) { -%> 
             // This function computes allows as to compute (X-X1)·(X-X2)·...·(X-Xn) used in Lagrange interpolation
-            function calcLagrangeItem(pMem, idx, n, X, pXi) -> result {
-                let max := add(n, 1)
-                result := 1
-                for { } gt(n, 0) { n := sub(n, 1) }
-                {
-                    idx := mod(add(idx, 1), max)
+            function calcLagrange<%- lagrangeSizes[i] %>Item(idx, X1, X2, pXiMem, pResult1, pResult2) {
+                let result1 := 1
+                let result2 := 1
+                let xi
 
-                    result := mulmod(result, addmod(X, mod(sub(q, mload(add(pMem, add(pXi, mul(idx, 32))))), q), q), q)
+<% if(!extendLoops) { -%>
+                for { let j := 0 } lt(j, <%- lagrangeSizes[i] -%>) { j := add(j, 1) } {
+<% } -%>
+<% let extendLoopLength = !extendLoops ? 1 : lagrangeSizes[i] -%>
+<% for(let l = 0; l < extendLoopLength; ++l) { -%>
+<% let j = extendLoops ? l : "j"; -%>
+<% let mulj = extendLoops ? l*32 : `mul(j, 32)` -%>
+                    if iszero(eq(<%- j %>, idx)) {
+                        xi := mload(add(pXiMem, <%- mulj %>))
+                        result1 := mulmod(result1, addmod(X1, xi, q), q)
+                        result2 := mulmod(result2, addmod(X2, xi, q), q)
+                    }
+
+<%  } -%>
+<% if(!extendLoops) { -%>
                 }
-            }
+<%  } -%>
+                mstore(pResult1, result1)
+                mstore(pResult2, result2)
+            }   
+<%  } -%>
 
             // Prepare all the denominators that must be inverted, placed them in consecutive memory addresses
-            function computeInverseValues(pMem) {
+            function computeDenValues(pMem) {
                 let y := mload(add(pMem, pY))
                 let w
 <% dens = [] -%>
@@ -343,36 +384,41 @@ contract ShPlonkVerifier {
                 mstore(add(pMem, pDenw<%- dName %>), w)
 <% } -%>
 <% } -%>
-
-                let value
-<% liNames = []; -%>
-<% for(let i = 0; i < vk.f.length; ++i) { -%>
-<% for(let k = 0; k < vk.f[i].openingPoints.length; ++k) { -%>
-<%  let liName = vk.f[i].openingPoints[k] === 0 ? `${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[k]}d${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` -%>
-<%  if(!liNames.includes(liName)) { -%>
-<%      liNames.push(liName); -%>
-<%  let wName = vk.f[i].openingPoints[k] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[k]}d${vk.f[i].pols.length}` -%>
-<%  let wName0 = vk.f[i].openingPoints[0] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}` -%>
-<% for(let j = 0; j < vk.f[i].pols.length; ++j) { -%>
-                value := calcLagrangeItem(pMem, <%= j + k*vk.f[i].pols.length %>, <%- vk.f[i].pols.length * vk.f[i].openingPoints.length - 1 %>, mload(add(pMem,pw<%-wName %>_<%- j %>)), pw<%-wName0 %>_0)
-                mstore(add(pMem, pLiw<%- liName %>Inv_<%- j %>), value)
-<% } -%>
-<% } -%>
-<% } -%>
-<% } -%>
             }
 
             function computeLagrangeItems(pMem) {
-                let lagrange
+                let y := mload(add(pMem, pY))
+                let xi
+                let pXiMem := mload(0x40)
 <%  laNames = [] -%>
 <%  for(let i = 0; i < vk.f.length; i++) { -%>
 <%      let laName = vk.f[i].openingPoints[0] === 0 ? `${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` -%>
+<%  let wName0 = vk.f[i].openingPoints[0] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}` -%>
 <%      if(!laNames.includes(laName)) { -%>
 <%          laNames.push(laName); -%>
-<%      for(let l = 0; l < vk.f[i].pols.length * vk.f[i].openingPoints.length; l++) { -%>
-<%  let wName = vk.f[i].openingPoints[0] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}` -%>
-                lagrange := calcLagrangeItem(pMem,<%- l %>, <%- vk.f[i].pols.length * vk.f[i].openingPoints.length - 1%>, mload(add(pMem,pY)), pw<%- wName %>_0)
-                mstore(add(pMem, pLagrange<%- laName %>_<%- l %>), lagrange)
+<%          if(vk.f[i].pols.length * vk.f[i].openingPoints.length > 2) { -%>
+<%              for(let r = 0; r < vk.f[i].pols.length * vk.f[i].openingPoints.length; ++r) { -%>
+                mstore(add(pXiMem, <%- r * 32 %>), mod(sub(q, mload(add(pMem, add(pw<%- wName0 %>_0, <%- r * 32 %>)))), q))
+<%              } -%>
+<%          } -%> 
+<%      let l = 0; -%>
+<%      for(let k = 0; k < vk.f[i].openingPoints.length; k++) { -%>
+<%      for(let j = 0; j < vk.f[i].pols.length; j++) { -%>
+<%  let wName = vk.f[i].openingPoints[k] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[k]}d${vk.f[i].pols.length}` -%>
+<%  let liName = vk.f[i].openingPoints[k] === 0 ? `${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[k]}d${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` -%>
+<%  if(vk.f[i].pols.length * vk.f[i].openingPoints.length === 1) { -%>
+                mstore(add(pMem, pLiw<%- liName %>Inv_<%- j %>), 1)
+                mstore(add(pMem, pLagrange<%- laName %>_<%- l %>), 1)
+<% } else if(vk.f[i].pols.length * vk.f[i].openingPoints.length === 2) { -%>
+                xi := mod(sub(q, mload(add(pMem, add(pw<%- wName0 %>_0, <%- ((l + 1) % 2)*32 %>)))), q)
+                mstore(add(pMem, pLiw<%- liName %>Inv_<%- j %>), addmod(mload(add(pMem, add(pw<%- wName0 %>_0, <%- l*32 %>))), xi, q))
+                mstore(add(pMem, pLagrange<%- laName %>_<%- l %>), addmod(y, xi, q))
+<% } else { -%>
+                calcLagrange<%- vk.f[i].pols.length * vk.f[i].openingPoints.length %>Item(<%- l %>, mload(add(pMem,pw<%-wName %>_<%- j %>)), y, pXiMem, add(pMem, pLiw<%- liName %>Inv_<%- j %>), add(pMem, pLagrange<%- laName %>_<%- l %>))
+<% } -%>
+
+<%      l++; -%>
+<%      } -%>
 <%      } -%>
 <%      } -%>
 <%  } -%>
@@ -405,6 +451,8 @@ contract ShPlonkVerifier {
 <% } -%>
                     acc := <%- evalPos0 %>
                     accRoot := root
+                    
+<%  if(extendLoops || (nonCommittedPols.length > 0 && nonCommittedPols.some(r=> vk.f[i].pols.includes(r)))) { -%>
 <%  for(let j = 1; j < vk.f[i].pols.length; ++j) { -%> 
 <%  const evalPos = nonCommittedPols.length === 0 || !nonCommittedPols.includes(vk.f[i].pols[j] + wPower) 
         ? `calldataload(pEval_${vk.f[i].pols[j] + wPower})` 
@@ -412,16 +460,21 @@ contract ShPlonkVerifier {
                     acc := addmod(acc, mulmod(<%- evalPos %>, accRoot, q), q)
                     accRoot := mulmod(accRoot, root, q)
 <% } -%>
+<% } else { -%>
+                    for { let j := 1 } lt(j, <%- vk.f[i].pols.length %>) { j := add(j, 1)} {
+                        acc := addmod(acc, mulmod(<%- `calldataload(add(pEval_${vk.f[i].pols[0] + wPower}, mul(j, 32)))` %>, accRoot, q), q)
+                        accRoot := mulmod(accRoot, root, q)
+                    }
+<% } -%>
+
 <% if(extendLoops) { -%>
                     lagrange := mload(add(pMem, pLagrange<%- lName %>_<%- l %>))
                     lagrange := mulmod(lagrange, mload(add(pMem, pLiw<%- `${wName}_${vk.f[i].openingPoints.join("")}` %>Inv_<%- l %>)), q)
 <% } else { -%>
                     lagrange := mload(add(pMem, add(pLagrange<%- lName %>_0, mul(i,32))))
                     lagrange := mulmod(lagrange, mload(add(pMem, add(pLiw<%- `${wName}_${vk.f[i].openingPoints.join("")}` %>Inv_0, mul(i,32)))), q)
-<% } -%>    
-
-                    res := addmod(res, mulmod(acc, lagrange, q), q)
-            
+<% } -%>
+                    res := addmod(res, mulmod(acc, lagrange, q), q)    
 <% if(!extendLoops) { -%>
                 }
 <% } -%>
@@ -431,7 +484,7 @@ contract ShPlonkVerifier {
 
 <%      } else { -%>
             function computeR<%- i %>( pMem <%- nonCommittedPols.length > 0 && nonCommittedPols.some(r=> vk.f[i].pols.includes(r)) ? ",pNonCommittedPols" : "" %>) {
-                let res 
+                let res
 <% if(!extendLoops) { -%>
 		        for { let i := 0 } lt(i, <%- vk.f[i].pols.length %>) { i := add(i, 1) } {
 <% } -%>
@@ -457,6 +510,8 @@ contract ShPlonkVerifier {
 <% } -%>
                     acc := <%- evalPos0 %>
                     accRoot := root
+
+<%  if(extendLoops || (nonCommittedPols.length > 0 && nonCommittedPols.some(r=> vk.f[i].pols.includes(r)))) { -%>                   
 <%  for(let j = 1; j < vk.f[i].pols.length; ++j) { -%>
 <%  const evalPos = nonCommittedPols.length === 0 || !nonCommittedPols.includes(vk.f[i].pols[j] + wPower) 
         ? `calldataload(pEval_${vk.f[i].pols[j] + wPower})` 
@@ -464,15 +519,18 @@ contract ShPlonkVerifier {
                     acc := addmod(acc, mulmod(<%- evalPos %>, accRoot, q), q)
                     accRoot := mulmod(accRoot, root, q)
 <% } -%>
+<% } else { -%>
+                    for { let j := 1 } lt(j, <%- vk.f[i].pols.length %>) { j := add(j, 1)} {
+                        acc := addmod(acc, mulmod(<%- `calldataload(add(pEval_${vk.f[i].pols[0] + wPower}, mul(j, 32)))` %>, accRoot, q), q)
+                        accRoot := mulmod(accRoot, root, q)
+                    }
+<% } -%>
 
-<% const addition = !extendLoops 
-	?  k === 0 ? "i" : `add(i, ${k*vk.f[i].pols.length})`
-	:  k === 0 ? l : l + k*vk.f[i].pols.length  -%> 
 <% if(extendLoops) { -%>
-                    lagrange := mload(add(pMem, pLagrange<%- lName %>_<%- addition %>))
+                    lagrange := mload(add(pMem, pLagrange<%- lName %>_<%- k === 0 ? l : l + k*vk.f[i].pols.length %>))
                     lagrange := mulmod(lagrange, mload(add(pMem, pLiw<%- `${wName}_${vk.f[i].openingPoints.join("")}` %>Inv_<%- l %>)), q)
 <% } else { -%>
-                    lagrange := mload(add(pMem, add(pLagrange<%- lName %>_0, mul(i,32))))
+                    lagrange := mload(add(pMem, add(pLagrange<%- lName %>_0, mul(<%- k === 0 ? "i" : `add(i, ${k*vk.f[i].pols.length})` %>,32))))
                     lagrange := mulmod(lagrange, mload(add(pMem, add(pLiw<%- `${wName}_${vk.f[i].openingPoints.join("")}` %>Inv_0, mul(i, 32)))), q)
 <% } -%>
                     res := addmod(res, mulmod(acc, lagrange, q), q)
@@ -494,7 +552,7 @@ contract ShPlonkVerifier {
                 mstore(add(mIn,64), mload(pP))
                 mstore(add(mIn,96), mload(add(pP, 32)))
 
-                let success := staticcall(sub(gas(), 2000), 6, mIn, 128, pR, 64)
+                let success := staticcall(gas(), 6, mIn, 128, pR, 64)
 
                 if iszero(success) {
                     mstore(0, 0)
@@ -504,41 +562,13 @@ contract ShPlonkVerifier {
 
             // G1 function to multiply a G1 value to value in an address
             function g1_mulAcc(pR, px, py, s) {
-                if eq(or(iszero(px), iszero(py)), 0) {
-                    let success
-                    let mIn := mload(0x40)
-                    mstore(mIn, px)
-                    mstore(add(mIn,32), py)
-                    mstore(add(mIn,64), s)
-
-                    success := staticcall(sub(gas(), 2000), 7, mIn, 96, mIn, 64)
-
-                    if iszero(success) {
-                        mstore(0, 0)
-                        return(0,0x20)
-                    }
-
-                    mstore(add(mIn,64), mload(pR))
-                    mstore(add(mIn,96), mload(add(pR, 32)))
-
-                    success := staticcall(sub(gas(), 2000), 6, mIn, 128, pR, 64)
-
-                    if iszero(success) {
-                        mstore(0, 0)
-                        return(0,0x20)
-                    }
-                }
-            }
-
-            // G1 function to multiply a G1 value(x,y) to value in an address
-            function g1_mulAccC(pR, x, y, s) {
                 let success
                 let mIn := mload(0x40)
-                mstore(mIn, x)
-                mstore(add(mIn,32), y)
+                mstore(mIn, px)
+                mstore(add(mIn,32), py)
                 mstore(add(mIn,64), s)
 
-                success := staticcall(sub(gas(), 2000), 7, mIn, 96, mIn, 64)
+                success := staticcall(gas(), 7, mIn, 96, mIn, 64)
 
                 if iszero(success) {
                     mstore(0, 0)
@@ -548,7 +578,7 @@ contract ShPlonkVerifier {
                 mstore(add(mIn,64), mload(pR))
                 mstore(add(mIn,96), mload(add(pR, 32)))
 
-                success := staticcall(sub(gas(), 2000), 6, mIn, 128, pR, 64)
+                success := staticcall(gas(), 6, mIn, 128, pR, 64)
 
                 if iszero(success) {
                     mstore(0, 0)
@@ -596,7 +626,7 @@ contract ShPlonkVerifier {
 <% for(let i = 1; i < vk.f.length; ++i) { -%>
                 accR := addmod(accR, mulmod(mload(add(pMem,pQuotient<%- i %>)), mload(add(pMem, pR<%- i %>)),q) ,q)
 <% } -%>
-                g1_mulAccC(add(pMem, pE), G1x, G1y, accR)
+                g1_mulAcc(add(pMem, pE), G1x, G1y, accR)
 
                 // Compute the full difference [J]_1
                 g1_mulAcc(add(pMem, pJ), calldataload(pW), calldataload(add(pW, 32)), numerator)
@@ -638,7 +668,7 @@ contract ShPlonkVerifier {
                 mstore(add(mIn, 320), X2y2)
                 mstore(add(mIn, 352), X2y1)
 
-                let success := staticcall(sub(gas(), 2000), 8, mIn, 384, mIn, 0x20)
+                let success := staticcall(gas(), 8, mIn, 384, mIn, 0x20)
 
                 isOk := and(success, mload(mIn))
             }
@@ -650,14 +680,12 @@ contract ShPlonkVerifier {
             checkInput()
 
 <% let xiSeedValue = xiSeed ? "challengeXiSeed" : "mload(add(pMem, pXiSeed))" -%>
-            // Compute the challenges alpha and y ∈ F
-
 <% let challengesInput = xiSeed ? "pMem, challengeXiSeed" : "pMem" -%>       
+            // Compute the challenges alpha and y ∈ F
             computeChallenges(<%- challengesInput %>)
 
             // Compute powers of xi seed
             computePowersXi(pMem, <%- xiSeedValue %>)
-
             
             // Compute roots
             computeRoots(pMem)
@@ -670,13 +698,13 @@ contract ShPlonkVerifier {
             //      1) Prepare all the denominators to inverse
             //      2) Check the inverse sent by the prover it is what it should be
             //      3) Compute the others inverses using the Montgomery Batched Algorithm using the inverse sent to avoid the inversion operation it does.
-            computeInverseValues(pMem)
-
-            // Execute Montgomery batched inversions of the previous prepared values
-            inverseArray(pMem)
+            computeDenValues(pMem)
 
             // Compute Lagrange Items to avoid calculating it more than once
             computeLagrangeItems(pMem)
+
+            // Execute Montgomery batched inversions of the previous prepared values
+            inverseArray(pMem)
 
 <% for(let i = 0; i < vk.f.length; ++i) { -%>
 <% if(nonCommittedPols.length > 0 && nonCommittedPols.some(r=> vk.f[i].pols.includes(r))) { -%>
@@ -695,7 +723,6 @@ contract ShPlonkVerifier {
             mstore(0x40, sub(pMem, lastMem))
             mstore(0, isValid)
             return(0,0x20)
-
         }
     }
 }

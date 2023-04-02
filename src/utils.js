@@ -8,7 +8,7 @@ function gcd(a, b)
 }
  
 // Returns LCM of array elements
-exports.lcm = function lcm(arr)
+module.exports.lcm = function lcm(arr)
 {
     // Initialize result
     let ans = arr[0];

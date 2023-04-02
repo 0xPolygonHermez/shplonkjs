@@ -55,7 +55,7 @@ module.exports.commit = async function commit(stage, pk, polynomials, PTau, curv
     if (logger) logger.info(`> Commiting polynomials for stage ${stage}`);
 
     // Sort f by index
-    pk.f.sort((a, b) => a - b);
+    pk.f.sort((a, b) => a.index - b.index);
 
     // Get all the polynomials that are being committed at the stage provided
     const fPolsToCommit = [];
@@ -125,7 +125,7 @@ module.exports.open = async function open(pk, PTau, polynomials, committedPols, 
     if (logger) logger.info(`> Opening polynomials and calculating W, Wp`);
 
     // Sort f by index
-    pk.f.sort((a, b) => a - b);
+    pk.f.sort((a, b) => a.index - b.index);
 
     // Store all the committed polynomials and its commits to its corresponding fi
     addCommitsF(pk.f, committedPols, true, curve);
@@ -136,7 +136,7 @@ module.exports.open = async function open(pk, PTau, polynomials, committedPols, 
     }
 
     // Calculate the xiSeed from all the committed polynomials
-    const xiSeed = options.xiSeed ? curve.Fr.e(options.xiSeed) : computeChallengeXiSeed(pk.f.sort((a,b) => a.index > b.index ? 1 : -1).map(fi => fi.commit), curve);
+    const xiSeed = options.xiSeed ? curve.Fr.e(options.xiSeed) : computeChallengeXiSeed(pk.f.sort((a,b) => a.index - b.index).map(fi => fi.commit), curve);
 
     const nonCommittedPols = options.nonCommittedPols ? options.nonCommittedPols : [];
     
@@ -182,7 +182,7 @@ module.exports.verifyOpenings = async function verifyOpenings(vk, commits, evalu
     const logger = options.logger;
 
     // Sort f by index
-    vk.f.sort((a, b) => a - b);
+    vk.f.sort((a, b) => a.index - b.index);
 
     // Store the polynomial commits to its corresponding fi
     for(let i = 0; i < vk.f.length; ++i) {
@@ -191,7 +191,7 @@ module.exports.verifyOpenings = async function verifyOpenings(vk, commits, evalu
     }
 
     // Calculate the xiSeed from all the committed polynomials
-    const xiSeed =  options.xiSeed ? curve.Fr.e(options.xiSeed) : computeChallengeXiSeed(vk.f.sort((a,b) => a.index > b.index ? 1 : -1).map(fi => fi.commit), curve);
+    const xiSeed =  options.xiSeed ? curve.Fr.e(options.xiSeed) : computeChallengeXiSeed(vk.f.sort((a,b) => a.index - b.index).map(fi => fi.commit), curve);
 
     const nonCommittedPols = options.nonCommittedPols ? options.nonCommittedPols : [];
 

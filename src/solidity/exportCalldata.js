@@ -6,14 +6,14 @@ function i2hex(i) {
     return ("0" + i.toString(16)).slice(-2);
 }
 
-module.exports.exportCalldata = async function exportCalldata(fileName, vk, commits, evaluations, curve, options = {}) {
+module.exports.exportCalldata = async function exportCalldata(vk, commits, evaluations, curve, options = {}) {
 
     const logger = options.logger; 
 
     const nonCommittedPols = options.nonCommittedPols ? options.nonCommittedPols : [];
     
     // Sort f by index
-    vk.f.sort((a, b) => a - b);
+    vk.f.sort((a, b) => a.index - b.index);
 
     const G1 = curve.G1;
     const Fr = curve.Fr;
@@ -72,14 +72,6 @@ module.exports.exportCalldata = async function exportCalldata(fileName, vk, comm
     for(let i = 0; i < proofSize; ++i) {
         proofHex.push(ethers.utils.hexZeroPad(`0x${proofStringHex.slice(i*64, (i+1)*64)}`, 32));
     }
-    
-    if(!options.xiSeed && nonCommittedPols.length === 0) {
-        fs.writeFileSync(fileName, JSON.stringify(proofHex), "utf-8");
-        return proofHex;
-
-    }
-
-    
     let inputs = [proofHex];
     if(options.xiSeed) {
         inputs.push(ethers.utils.hexlify(options.xiSeed));
@@ -94,7 +86,7 @@ module.exports.exportCalldata = async function exportCalldata(fileName, vk, comm
         inputs.push(nonCommittedEvalsHex);
     }
     
-    fs.writeFileSync(fileName, JSON.stringify(inputs).substring(1, JSON.stringify(inputs).length - 1), "utf-8");
+    const inputString = JSON.stringify(inputs).substring(1, JSON.stringify(inputs).length - 1);
 
-    return inputs;
+    return inputString;
 }

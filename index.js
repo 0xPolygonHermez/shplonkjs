@@ -1,5 +1,5 @@
 module.exports.exportCalldata = require("./src/solidity/exportCalldata.js").exportCalldata;
-module.exports.exportSolidityVerifier = require("./src/solidity/exportSolidityVerifier.js").exportSolidityVerifier;
+module.exports.exportSolidityShPlonkVerifier = require("./src/solidity/exportSolidityVerifier.js").exportSolidityVerifier;
 module.exports.setup = require("./src/shplonk.js").setup;
 module.exports.commit = require("./src/shplonk.js").commit;
 module.exports.open = require("./src/shplonk.js").open;
@@ -14,6 +14,7 @@ module.exports.computeChallengeY = require("./src/helpers/helpers.js").computeCh
 module.exports.getOrderedEvals = require("./src/helpers/helpers.js").getOrderedEvals;
 module.exports.sumCommits = require("./src/helpers/helpers.js").sumCommits;
 module.exports.sumPolynomials = require("./src/helpers/helpers.js").sumPolynomials;
+module.exports.lcm = require("./src/utils.js").lcm;
 module.exports.Polynomial = require("./src/polynomial/polynomial").Polynomial;
 module.exports.CPolynomial = require("./src/polynomial/cpolynomial").CPolynomial;
 module.exports.Keccak256Transcript = require("./src/Keccak256Transcript").Keccak256Transcript;

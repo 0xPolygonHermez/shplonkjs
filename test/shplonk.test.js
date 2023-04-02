@@ -65,8 +65,25 @@ describe("Shplonk test suite", function () {
             fs.mkdirSync(`./tmp/contracts`, {recursive: true});
         }
 
-        const inputs = await exportCalldata(`tmp/calldata/shplonk_calldata_${tmpName}.txt`, zkey, commits, evaluations, curve, options);
-        await exportSolidityVerifier(`tmp/contracts/shplonk_verifier_${tmpName}.sol`, zkey, commits, curve, options);
+        for(let i = 0; i < zkey.f.length; ++i) {
+            if(zkey.f[i].stages.length === 1 && zkey.f[i].stages[0].stage === 0) {
+                if(!commits[`f${zkey.f[i].index}`]) throw new Error(`f${zkey.f[i].index} commit is missing`);
+                zkey[`f${zkey.f[i].index}`] = curve.G1.toObject(commits[`f${zkey.f[i].index}`]);
+            }
+        }
+
+        const ws = Object.keys(zkey).filter(k => k.match(/^w\d/));    
+        for(let i = 0; i < ws.length; ++i) {
+            zkey[ws[i]] = curve.Fr.toObject(zkey[ws[i]]);
+        }
+
+        zkey.X_2 = curve.G2.toObject(zkey.X_2);
+
+        const inputs = await exportCalldata(zkey, commits, evaluations, curve, options);
+        const verifierCode = await exportSolidityVerifier(zkey, curve, options);
+        
+        fs.writeFileSync(`tmp/calldata/shplonk_calldata_${tmpName}.txt`, inputs, "utf-8");
+        fs.writeFileSync(`tmp/contracts/shplonk_verifier_${tmpName}.sol`, verifierCode, "utf-8");
 
         await run("compile");
 
@@ -75,16 +92,11 @@ describe("Shplonk test suite", function () {
 
         await shPlonkVerifier.deployed();
 
-        if(xiSeed || nonCommittedPols.length > 0) {
-            expect(await shPlonkVerifier.verifyCommitments(...inputs)).to.equal(true);
-        } else {
-            expect(await shPlonkVerifier.verifyCommitments(inputs)).to.equal(true);
-        }
-
-        
+        const inputsModified = JSON.parse(`[${inputs}]`);
+        expect(await shPlonkVerifier.verifyCommitments(...inputsModified)).to.equal(true);        
     }
 
-    it.skip("Testing shplonk with pil-fflonk pols", async () => {
+    it("Testing shplonk with pil-fflonk pols", async () => {
         const config = {
             "power":5,
             "polDefs":[
@@ -151,7 +163,7 @@ describe("Shplonk test suite", function () {
 
         const ptauFilename = path.join("test", "powersOfTau15_final.ptau");
 
-        await shPlonkTest(config, ptauFilename, {tmpName: "pilfflonk", extendLoops: true});
+        await shPlonkTest(config, ptauFilename, {tmpName: "pilfflonk", extendLoops: false});
 
     })
 
@@ -225,7 +237,7 @@ describe("Shplonk test suite", function () {
                 "openBy": 'stage',
             };
     
-            await shPlonkTest(config, ptauFilename, {tmpName: "fflonk2", extendLoops: true});
+            await shPlonkTest(config, ptauFilename, {tmpName: "fflonk2", extendLoops: false});
         });
 
         it("shplonk full test with scalar multiplications specified by total number", async () => {
@@ -275,78 +287,35 @@ describe("Shplonk test suite", function () {
                 "power": 5,
                 "polDefs": [
                     [
-                        {"name": "QL", "stage": 0, "degree": 32},
-                        {"name": "QR", "stage": 0, "degree": 32},
-                        {"name": "QO", "stage": 0, "degree": 32},
-                        {"name": "QM", "stage": 0, "degree": 32},
-                        {"name": "QC", "stage": 0, "degree": 32},
-                        {"name": "Sigma1", "stage": 0, "degree": 32},
-                        {"name": "Sigma2", "stage": 0, "degree": 32},
-                        {"name": "Sigma3", "stage": 0, "degree": 32},
-                        {"name": "A", "stage": 1, "degree": 33},
-                        {"name": "B", "stage": 1, "degree": 33},
-                        {"name": "C", "stage": 1, "degree": 33},
-                        {"name": "T0", "stage": 1, "degree": 65},
+                        {"name": "QL", "stage": 0, "degree": 31},
+                        {"name": "QR", "stage": 0, "degree": 31},
+                        {"name": "QO", "stage": 0, "degree": 31},
+                        {"name": "QM", "stage": 0, "degree": 31},
+                        {"name": "QC", "stage": 0, "degree": 31},
+                        {"name": "Sigma1", "stage": 0, "degree": 31},
+                        {"name": "Sigma2", "stage": 0, "degree": 31},
+                        {"name": "Sigma3", "stage": 0, "degree": 31},
+                        {"name": "A", "stage": 1, "degree": 31},
+                        {"name": "B", "stage": 1, "degree": 31},
+                        {"name": "C", "stage": 1, "degree": 31},
+                        {"name": "T0", "stage": 1, "degree": 61},
                         {"name": "Z",  "stage": 2, "degree": 34},
                         {"name": "T1", "stage": 2, "degree": 33},
-                        {"name": "T2", "stage": 2, "degree": 101}
+                        {"name": "T2", "stage": 2, "degree": 95}
                     ],
                     [
                         {"name": "Z",  "stage": 2, "degree": 34},
                         {"name": "T1", "stage": 2, "degree": 33},
-                        {"name": "T2", "stage": 2, "degree": 101}
+                        {"name": "T2", "stage": 2, "degree": 95}
                     ],
-                    [
-                        {"name": "T3", "stage": 3, "degree": 34},
-                        {"name": "T4", "stage": 3,  "degree": 33},
-                    ]
                 ], 
-                "extraMuls": 5,
+                "extraMuls": 2,
                 "openBy": 'stage',
             };
-    
-            await shPlonkTest(config, ptauFilename, {tmpName: "testNonCommitted", nonCommittedPols: ["T0", "T1", "T2"], extendLoops: true});
-        });
 
-        it("shplonk full test specifying xiSeed from outside the protocol", async () => {
-            const ptauFilename = path.join("test", "powersOfTau15_final.ptau");
-    
             const F = new F1Field(21888242871839275222246405745257275088548364400416034343698204186575808495617n);
-            const config = {
-                "power": 5,
-                "polDefs": [
-                    [
-                        {"name": "QL", "stage": 0, "degree": 32},
-                        {"name": "QR", "stage": 0, "degree": 32},
-                        {"name": "QO", "stage": 0, "degree": 32},
-                        {"name": "QM", "stage": 0, "degree": 32},
-                        {"name": "QC", "stage": 0, "degree": 32},
-                        {"name": "Sigma1", "stage": 0, "degree": 32},
-                        {"name": "Sigma2", "stage": 0, "degree": 32},
-                        {"name": "Sigma3", "stage": 0, "degree": 32},
-                        {"name": "A", "stage": 1, "degree": 33},
-                        {"name": "B", "stage": 1, "degree": 33},
-                        {"name": "C", "stage": 1, "degree": 33},
-                        {"name": "T0", "stage": 1, "degree": 65},
-                        {"name": "Z",  "stage": 2, "degree": 34},
-                        {"name": "T1", "stage": 2, "degree": 33},
-                        {"name": "T2", "stage": 2, "degree": 101}
-                    ],
-                    [
-                        {"name": "Z",  "stage": 2, "degree": 34},
-                        {"name": "T1", "stage": 2, "degree": 33},
-                        {"name": "T2", "stage": 2, "degree": 101}
-                    ],
-                    [
-                        {"name": "T3", "stage": 3, "degree": 34},
-                        {"name": "T4", "stage": 3,  "degree": 33},
-                    ]
-                ], 
-                "extraMuls": 5,
-                "openBy": 'stage',
-            };
-    
-            await shPlonkTest(config, ptauFilename, {xiSeed: F.random(), tmpName: "testXiSeed", extendLoops: true});
+
+            await shPlonkTest(config, ptauFilename, {tmpName: "testComplete", xiSeed: F.random(), nonCommittedPols: ["T0", "T1", "T2"], extendLoops: true});
         });
     });
 
@@ -414,7 +383,7 @@ describe("Shplonk test suite", function () {
                 "openBy": 'openingPoints',
             };
     
-            await shPlonkTest(config, ptauFilename, {tmpName:"fflonk3", extendLoops: true});
+            await shPlonkTest(config, ptauFilename, {tmpName:"fflonk3", extendLoops: false});
         });
 
 
