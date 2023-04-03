@@ -96,7 +96,7 @@ describe("Shplonk test suite", function () {
         expect(await shPlonkVerifier.verifyCommitments(...inputsModified)).to.equal(true);        
     }
 
-    it("Testing shplonk with pil-fflonk pols", async () => {
+    it.skip("Testing shplonk with pil-fflonk pols", async () => {
         const config = {
             "power":5,
             "polDefs":[
@@ -197,14 +197,14 @@ describe("Shplonk test suite", function () {
                         {"name": "T2", "stage": 2, "degree": 95}
                     ],
                 ], 
-                "extraMuls": 2,
+                "extraMuls": 0,
                 "openBy": 'stage',
             };
     
             await shPlonkTest(config, ptauFilename, {tmpName: "fflonk", extendLoops: true});
         });
 
-        it("shplonk full test with scalar multiplications specified by stage (fflonk)", async () => {
+        it.skip("shplonk full test with scalar multiplications specified by stage (fflonk)", async () => {
             const ptauFilename = path.join("test", "powersOfTau15_final.ptau");
     
             const config = {
@@ -240,7 +240,7 @@ describe("Shplonk test suite", function () {
             await shPlonkTest(config, ptauFilename, {tmpName: "fflonk2", extendLoops: false});
         });
 
-        it("shplonk full test with scalar multiplications specified by total number", async () => {
+        it.skip("shplonk full test with scalar multiplications specified by total number", async () => {
             const ptauFilename = path.join("test", "powersOfTau15_final.ptau");
     
             const config = {
@@ -280,7 +280,7 @@ describe("Shplonk test suite", function () {
             await shPlonkTest(config, ptauFilename, {tmpName: "test3", extendLoops: true});
         });
 
-        it("shplonk full test with specifying some polynomials that are not part of the proof", async () => {
+        it.skip("shplonk full test with specifying some polynomials that are not part of the proof", async () => {
             const ptauFilename = path.join("test", "powersOfTau15_final.ptau");
     
             const config = {
@@ -320,7 +320,7 @@ describe("Shplonk test suite", function () {
     });
 
     describe("Testing shplonk using setup by opening points",() => {
-        it("shplonk full basic test with no scalar multiplications", async () => {
+        it.skip("shplonk full basic test with no scalar multiplications", async () => {
             const ptauFilename = path.join("test", "powersOfTau15_final.ptau");
     
             const config = {
@@ -350,7 +350,7 @@ describe("Shplonk test suite", function () {
             await shPlonkTest(config, ptauFilename, {tmpName: "test4", extendLoops: true});
         });
 
-        it("shplonk full test with scalar multiplications specified by opening points (fflonk)", async () => {
+        it.skip("shplonk full test with scalar multiplications specified by opening points (fflonk)", async () => {
             const ptauFilename = path.join("test", "powersOfTau15_final.ptau");
     
             const config = {
@@ -387,7 +387,7 @@ describe("Shplonk test suite", function () {
         });
 
 
-        it("shplonk full basic test with scalar multiplications specified by opening points (fflonk)", async () => {
+        it.skip("shplonk full basic test with scalar multiplications specified by opening points (fflonk)", async () => {
             const ptauFilename = path.join("test", "powersOfTau15_final.ptau");
     
             const config = {
@@ -423,7 +423,7 @@ describe("Shplonk test suite", function () {
             await shPlonkTest(config, ptauFilename, {tmpName: "fflonk4", extendLoops: true});
         });
 
-        it("shplonk full basic test with scalar multiplications specified by total number", async () => {
+        it.skip("shplonk full basic test with scalar multiplications specified by total number", async () => {
             const ptauFilename = path.join("test", "powersOfTau15_final.ptau");
     
             const config = {

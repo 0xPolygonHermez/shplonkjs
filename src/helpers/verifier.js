@@ -1,7 +1,7 @@
 const {Polynomial} = require("../polynomial/polynomial.js");
 const {Scalar} = require("ffjavascript");
 
-function computeLagrangeLiSi(roots, x, xi, curve) {
+function computeLagrangeSingleOpeningPoint(roots, x, xi, curve) {
     const Fr = curve.Fr;
     const len = roots.length;
     
@@ -20,28 +20,100 @@ function computeLagrangeLiSi(roots, x, xi, curve) {
     return Li;
 }
 
+function computeLagrangeTwoOpeningPoints(roots, value, xi0, xi1, curve) {
+    const Fr = curve.Fr;
 
-function computeRi(f, evals, roots, challengeY, challengeXi, curve, logger) {
+    const Li = [];
 
-    if(roots.length === 1) {
+    const len = roots[0].length;
+    const n = len * roots.length;
+
+    console.log(len, n);
+
+    const num1 = Fr.exp(value, n);
+
+    console.log(n, Fr.toString(num1));
+
+    const num2 = Fr.mul(Fr.add(xi0, xi1), Fr.exp(value, len));
+    const num3 = Fr.mul(xi0, xi1);
+    const num = Fr.add(Fr.sub(num1, num2), num3);
+
+    console.log(Fr.toString(num1));
+    console.log(Fr.toString(num2));
+
+    console.log(Fr.toString(num3));
+
+
+    let den1 = Fr.mul(Fr.mul(Fr.e(len), Fr.exp(roots[0][0], len - 2)), Fr.sub(xi0, xi1));
+    for (let i = 0; i < len; i++) {
+        const den2 = roots[0][(len - 1) * i % len];
+        const den3 = Fr.sub(value, roots[0][i]);
+
+        const den = Fr.mul(den1,Fr.mul(den2, den3));
+
+        Li[i] = Fr.div(num, den);
+    }
+
+    den1 = Fr.mul(Fr.mul(Fr.e(len), Fr.exp(roots[1][0], len - 2)), Fr.sub(xi1, xi0));
+
+    for (let i = 0; i < len; i++) {
+        const den2 = roots[1][(len - 1) * i % len];
+        const den3 = Fr.sub(value, roots[1][i]);
+
+        const den = Fr.mul(den1,Fr.mul(den2, den3));
+
+        Li[i + len] = Fr.div(num, den);
+    }
+
+    return Li;
+}
+
+
+
+function computeRi(f, evals, roots, challengeY, challengeXi, w1_1d1, curve, logger) {
+
+    if(roots.length < 3) {
+        let Li;
+        if(roots.length === 1) {    
+            let xi = challengeXi;
+            for(let j = 0; j < f.openingPoints[0]; ++j) {
+                xi = curve.Fr.mul(xi, w1_1d1);
+            }
+    
+            Li = computeLagrangeSingleOpeningPoint(roots[0], challengeY, xi, curve);
+        } else {    
+
+            let xi0 = challengeXi;
+            for(let j = 0; j < f.openingPoints[0]; ++j) {
+                xi0 = curve.Fr.mul(xi0, w1_1d1);
+            }
+    
+            let xi1 = challengeXi;
+            for(let j = 0; j < f.openingPoints[1]; ++j) {
+                xi1 = curve.Fr.mul(xi1, w1_1d1);
+            }
+    
+            Li = computeLagrangeTwoOpeningPoints(roots, challengeY, xi0, xi1, curve);
+        }
+    
+        const nPols = f.pols.length;
+        const n = roots.length;
         const rootsRi = roots.flat();
 
-        const Li = computeLagrangeLiSi(rootsRi, challengeY, challengeXi, curve);
-
-        const nPols = f.pols.length;
         let res = curve.Fr.zero;
         for(let i = 0; i < nPols; ++i) {
-            let r = curve.Fr.one;
-            let acc = curve.Fr.zero;
-            for(let j = 0; j < nPols; ++j) {
-                acc = curve.Fr.add(acc, curve.Fr.mul(r, evals[j]));
-                r = curve.Fr.mul(r, rootsRi[i]); 
+            for(let k = 0; k < n; ++k) {
+                let r = curve.Fr.one;
+                let acc = curve.Fr.zero;
+                for(let j = 0; j < nPols; ++j) {
+                    acc = curve.Fr.add(acc, curve.Fr.mul(r, evals[j + k*nPols]));
+                    r = curve.Fr.mul(r, rootsRi[i + k*nPols]); 
+                }
+                res = curve.Fr.add(res ,curve.Fr.mul(acc, Li[i + k*nPols]));
             }
-            res = curve.Fr.add(res ,curve.Fr.mul(acc, Li[i]));
         }
 
         return res;
-
     } else {
         const n = roots.length;
         const rootsRi = roots.flat();
@@ -81,12 +153,8 @@ exports.computeRVerifier = function computeRVerifier(vk, orderedEvals, roots, ch
         for(let j = 0; j < vk.f[i].openingPoints.length; ++j) {
             const wPower = vk.f[i].openingPoints[j] === 0 ? "" : vk.f[i].openingPoints[j] === 1 ? "w" : `w${vk.f[i].openingPoints[j]}`;
             evals.push(...vk.f[i].pols.map(fi => orderedEvals.find(e => e.name === fi + wPower).evaluation));
-        }
-        let xi = challengeXi;
-        for(let j = 0; j < vk.f[i].openingPoints[0]; ++j) {
-            xi = curve.Fr.mul(xi, vk.w1_1d1);
-        }
-        const ri = computeRi(vk.f[i], evals, roots[i], challengeY, xi, curve, logger);
+        } 
+        const ri = computeRi(vk.f[i], evals, roots[i], challengeY, challengeXi, vk.w1_1d1, curve, logger);
         r.push(ri);
     }
 

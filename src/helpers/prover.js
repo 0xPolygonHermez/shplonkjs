@@ -219,14 +219,38 @@ exports.computeWp = function computeWp(f, r, roots, W, challengeY, challengeAlph
 }
 
 function computeLiMultipleOpeningPoints(toInverse, roots, curve, logger) {
-    for(let i = 0; i < roots.length; ++i) {
+    const rootsRi = roots.flat();
+    for(let i = 0; i < rootsRi.length; ++i) {
         let idx = i;
         let den = curve.Fr.one;
-        for (let j = 0; j < roots.length - 1; j++) {
-            idx = (idx + 1) % roots.length;
-            den = curve.Fr.mul(den, curve.Fr.sub(roots[i], roots[idx]));
+        for (let j = 0; j < rootsRi.length - 1; j++) {
+            idx = (idx + 1) % rootsRi.length;
+            den = curve.Fr.mul(den, curve.Fr.sub(rootsRi[i], rootsRi[idx]));
         }
         toInverse.push(den);
+    }
+}
+
+function computeLiTwoOpeningPoints(toInverse, roots, value, xi0, xi1, curve) {
+    const Fr = curve.Fr;
+
+    const len = roots[0].length;
+
+    let den1 = Fr.mul(Fr.mul(Fr.e(len), Fr.exp(roots[0][0], len - 2)), Fr.sub(xi0, xi1));
+    for (let i = 0; i < len; i++) {
+        const den2 = roots[0][(len - 1) * i % len];
+        const den3 = Fr.sub(value, roots[0][i]);
+
+        toInverse.push(Fr.mul(den1,Fr.mul(den2, den3)));
+        
+    }
+
+    den1 = Fr.mul(Fr.mul(Fr.e(len), Fr.exp(roots[1][0], len - 2)), Fr.sub(xi1, xi0));
+    for (let i = 0; i < len; i++) {
+        const den2 = roots[1][(len - 1) * i % len];
+        const den3 = Fr.sub(value, roots[1][i]);
+
+        toInverse.push(Fr.mul(den1,Fr.mul(den2, den3)));    
     }
 }
 
@@ -238,7 +262,6 @@ function computeLiSingleOpeningPoint(toInverse, roots, x, curve, logger) {
 
     if(len === 1) return [curve.Fr.one];
     
-    const Li = [];
     for (let i = 0; i < len; i++) {
         const den2 = roots[((len - 1) * i) % len];
         const den3 = Fr.sub(x, roots[i]);
@@ -246,11 +269,9 @@ function computeLiSingleOpeningPoint(toInverse, roots, x, curve, logger) {
         toInverse.push(Fr.mul(Fr.mul(den1, den2), den3));
 
     }
-
-    return Li;
 }
 
-exports.getMontgomeryBatchedInverse = function getMontgomeryBatchedInverse(zkey, roots, challengeY, curve, logger) {
+exports.getMontgomeryBatchedInverse = function getMontgomeryBatchedInverse(zkey, roots, challengeY, challengeXi, curve, logger) {
     if (logger) logger.info(`> Getting Montgomery batched inverse`);
 
     // Define an array to store the inverses that will be calculated in the solidity verifier
@@ -275,11 +296,23 @@ exports.getMontgomeryBatchedInverse = function getMontgomeryBatchedInverse(zkey,
         let wName = zkey.f[i].openingPoints[0] === 0 ? `${zkey.f[i].pols.length}_${zkey.f[i].openingPoints.join("")}` : `${zkey.f[i].pols.length}_${zkey.f[i].openingPoints[0]}d${zkey.f[i].pols.length}_${zkey.f[i].openingPoints.join("")}`
         if(!liNames.includes(wName)) {
             liNames.push(wName);
-            const rootsRi = roots[zkey.f[i].index].flat();
-            if(zkey.f[i].openingPoints.length > 1) {
+            const rootsRi = roots[zkey.f[i].index];
+            if(zkey.f[i].openingPoints.length > 2) {
                 computeLiMultipleOpeningPoints(toInverse, rootsRi, curve, logger);
+            } else if (zkey.f[i].openingPoints.length === 2) {
+                let xi0 = challengeXi;
+                for(let j = 0; j < zkey.f[i].openingPoints[0]; ++j) {
+                    xi0 = curve.Fr.mul(xi0, zkey.w1_1d1);
+                }
+
+                let xi1 = challengeXi;
+                for(let j = 0; j < zkey.f[i].openingPoints[1]; ++j) {
+                    xi1 = curve.Fr.mul(xi1, zkey.w1_1d1);
+                }
+
+                computeLiTwoOpeningPoints(toInverse, rootsRi, challengeY, xi0, xi1, curve, logger);  
             } else if (zkey.f[i].pols.length > 1) {
-                computeLiSingleOpeningPoint(toInverse, rootsRi, challengeY, curve, logger);
+                computeLiSingleOpeningPoint(toInverse, rootsRi[0], challengeY, curve, logger);
             }
         }
     }
