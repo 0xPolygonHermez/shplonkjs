@@ -63,11 +63,16 @@ contract ShPlonkVerifier {
     uint16 constant pY      = 0;
     uint16 constant pAlpha  = 32;
 
+<%  let memC = 64; -%>
     // XiSeeds
 <%  if(!xiSeed) { -%>
-    uint16 constant pXiSeed = 64;
+    uint16 constant pXiSeed = <%- memC %>;
+<%      memC += 32; -%>
 <% } -%>
-<%  let memC = 96; -%>
+
+    uint16 constant pXi     = <%- memC %>; // xi challenge
+<%      memC += 32; -%>
+
 <%  let degreesXi = [] -%>
 <%  for (let i = 0; i < vk.f.length; ++i) { -%>
 <%     if(!degreesXi.includes(vk.f[i].pols.length)) { -%>
@@ -97,7 +102,7 @@ contract ShPlonkVerifier {
 <%  let laNames = [] -%>
 <%  for(let i = 0; i < vk.f.length; i++) { -%>
 <%      let laName = vk.f[i].openingPoints[0] === 0 ? `${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` -%>
-<%      if(!laNames.includes(laName)) { -%>
+<%      if(vk.f[i].openingPoints.length > 1 && !laNames.includes(laName)) { -%>
 <%          laNames.push(laName); -%>
 <%      for(let l = 0; l < vk.f[i].pols.length * vk.f[i].openingPoints.length; l++) { -%>
     uint16 constant pLagrange<%- laName %>_<%- l %> = <%- memC %>;
@@ -141,14 +146,16 @@ contract ShPlonkVerifier {
 <% let liNames = [] -%>
 <% for(let i = 0; i < vk.f.length; ++i) { -%>
 <% for(let k = 0; k < vk.f[i].openingPoints.length; ++k) { -%>
-<%      let liName = vk.f[i].openingPoints[k] === 0 ? `${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[k]}d${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` -%>    
-<%      if(!liNames.includes(liName)) { -%>  
+<%      let liName = vk.f[i].openingPoints[k] === 0 ? `${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[k]}d${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` -%>
+<%      if(!liNames.includes(liName)) { -%>
 <%          liNames.push(liName) -%>
+<% if(vk.f[i].openingPoints.length > 1 || vk.f[i].pols.length > 1) { -%>
 <% for(let j = 0; j < vk.f[i].pols.length; ++j) { -%>
     uint16 constant pLiw<%- liName %>Inv_<%- j %> = <%- memC %>;
 <% inversionCounter += 1 -%>
 <% inversionArray.push(`pLiw${liName}Inv_${j}`) -%>
 <%      memC += 32 -%>
+<% } -%>
 <% } -%>
 <% } -%>
 <% } -%>
@@ -319,6 +326,13 @@ contract ShPlonkVerifier {
                 let xiSeed := mod(keccak256(mIn, <%- vk.f.length * 64 %>), q)
                 mstore(add(pMem, pXiSeed), xiSeed)
 <% } -%>
+                // Compute xin
+                let xin := 1
+<%  for ( let i = 0; i < vk.powerW; i++) { -%>
+                xin:= mulmod(xin, xiSeed, q)
+<%  }   -%>
+
+                mstore(add(pMem, pXi), xin)
 
                 // Compute challenge.alpha
                 mstore(mIn, xiSeed)
@@ -335,18 +349,18 @@ contract ShPlonkVerifier {
                 mstore( add(pMem, pY), mod(keccak256(mIn, 96), q))
             }
 
-<%  const lagrangeSizes = [...new Set(vk.f.map(fi => fi.pols.length * fi.openingPoints.length).filter(s => s > 2))]; -%>
-<%  for(let i = 0; i < lagrangeSizes.length; i++) { -%> 
+<%  const lagrangeSizesMultipleOpenPoints = [...new Set(vk.f.filter(fi => fi.openingPoints.length > 1).map(fi => fi.pols.length * fi.openingPoints.length).filter(s => s > 2))]; -%>
+<%  for(let i = 0; i < lagrangeSizesMultipleOpenPoints.length; i++) { -%> 
             // This function computes allows as to compute (X-X1)·(X-X2)·...·(X-Xn) used in Lagrange interpolation
-            function calcLagrange<%- lagrangeSizes[i] %>Item(idx, X1, X2, pXiMem, pResult1, pResult2) {
+            function calcLagrange<%- lagrangeSizesMultipleOpenPoints[i] %>Item(idx, X1, X2, pXiMem, pResult1, pResult2) {
                 let result1 := 1
                 let result2 := 1
                 let xi
 
 <% if(!extendLoops) { -%>
-                for { let j := 0 } lt(j, <%- lagrangeSizes[i] -%>) { j := add(j, 1) } {
+                for { let j := 0 } lt(j, <%- lagrangeSizesMultipleOpenPoints[i] -%>) { j := add(j, 1) } {
 <% } -%>
-<% let extendLoopLength = !extendLoops ? 1 : lagrangeSizes[i] -%>
+<% let extendLoopLength = !extendLoops ? 1 : lagrangeSizesMultipleOpenPoints[i] -%>
 <% for(let l = 0; l < extendLoopLength; ++l) { -%>
 <% let j = extendLoops ? l : "j"; -%>
 <% let mulj = extendLoops ? l*32 : `mul(j, 32)` -%>
@@ -363,6 +377,45 @@ contract ShPlonkVerifier {
                 mstore(pResult1, result1)
                 mstore(pResult2, result2)
             }   
+<%  } -%>
+
+<%  laNames = [] -%>
+<%  for(let i = 0; i < vk.f.length; i++) { -%> 
+<%      let laName = vk.f[i].openingPoints[0] === 0 ? `${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` -%>
+<%  if(vk.f[i].openingPoints.length === 1 && vk.f[i].pols.length > 1 && !laNames.includes(laName)) { -%> 
+<%          laNames.push(laName) -%>
+            // This function computes Lagrange denominator formula
+            function calcLagrange<%- laName %>(pMem) {
+<%  let wName0 = vk.f[i].openingPoints[0] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}` -%>
+                let root0 := mload(add(pMem, pw<%- wName0 %>_0))
+                let y := mload(add(pMem, pY))
+                let den1 := <%- vk.f[i].pols.length %>
+                let den2
+                let den3
+<%  for(let k = 0; k < vk.f[i].pols.length - 2; ++k) { -%>
+                den1 := mulmod(den1, root0, q)
+<%  } -%>
+
+<% if(!extendLoops) { -%>
+<%  let liName0 = vk.f[i].openingPoints[0] === 0 ? `${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` -%>
+                for { let j := 0 } lt(j, <%- vk.f[i].pols.length %>) { j := add(j, 1) } {
+                    den2 := mload(add(pMem, add(pw<%- wName0 %>_0, mul(mod(mul(<%- vk.f[i].pols.length - 1 %>, j), <%- vk.f[i].pols.length %>), 32))))
+                    den3 := addmod(y, mod(sub(q, mload(add(pMem, add(pw<%- wName0 %>_0, mul(j, 32))))), q), q)
+
+                    mstore(add(pMem, add(pLiw<%- liName0 %>Inv_0, mul(j, 32))), mulmod(den1, mulmod(den2, den3, q), q))
+                }
+<%  } else { -%>
+<%  let liName0 = vk.f[i].openingPoints[0] === 0 ? `${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` -%>
+<%  for(let k = 0; k < vk.f[i].pols.length; ++k) { -%>
+                
+                den2 := mload(add(pMem, pw<%- wName0 %>_<%- ((vk.f[i].pols.length - 1)*k) % vk.f[i].pols.length %>))
+                den3 := addmod(y, mod(sub(q, mload(add(pMem, pw<%- wName0 %>_<%-k %>))), q), q)
+
+                mstore(add(pMem, pLiw<%- liName0 %>Inv_<%-k %>), mulmod(den1, mulmod(den2, den3, q), q))
+<%  } -%>
+<%  } -%>
+            }   
+<%  } -%>
 <%  } -%>
 
             // Prepare all the denominators that must be inverted, placed them in consecutive memory addresses
@@ -390,11 +443,12 @@ contract ShPlonkVerifier {
                 let y := mload(add(pMem, pY))
                 let xi
                 let pXiMem := mload(0x40)
+                
 <%  laNames = [] -%>
 <%  for(let i = 0; i < vk.f.length; i++) { -%>
 <%      let laName = vk.f[i].openingPoints[0] === 0 ? `${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` -%>
 <%  let wName0 = vk.f[i].openingPoints[0] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}` -%>
-<%      if(!laNames.includes(laName)) { -%>
+<%      if(vk.f[i].openingPoints.length > 1 && !laNames.includes(laName)) { -%>
 <%          laNames.push(laName); -%>
 <%          if(vk.f[i].pols.length * vk.f[i].openingPoints.length > 2) { -%>
 <%              for(let r = 0; r < vk.f[i].pols.length * vk.f[i].openingPoints.length; ++r) { -%>
@@ -420,6 +474,11 @@ contract ShPlonkVerifier {
 <%      l++; -%>
 <%      } -%>
 <%      } -%>
+<%      } else if(vk.f[i].openingPoints.length === 1 && !laNames.includes(laName)) { -%>
+<%          laNames.push(laName); -%>
+<%          if(vk.f[i].pols.length > 1) { -%>
+                calcLagrange<%- laName %>(pMem)
+<%          } -%>
 <%      } -%>
 <%  } -%>
             }
@@ -431,6 +490,24 @@ contract ShPlonkVerifier {
 <%  const wPower = vk.f[i].openingPoints[0] === 0 ? '' : vk.f[i].openingPoints[0] === 1 ? 'w' : `w${vk.f[i].openingPoints[0]}` -%>
             function computeR<%- i %>( pMem <%- nonCommittedPols.length > 0 && nonCommittedPols.some(r=> vk.f[i].pols.includes(r)) ? ",pNonCommittedPols" : "" %>) {
                 let res
+                let num := 1
+                let y := mload(add(pMem, pY))
+<%  if(!extendLoops) { -%>
+                for { let i := 0 } lt(i, <%- vk.f[i].pols.length %>) { i := add(i, 1) } {
+                    num := mulmod(num, y, q)
+                }
+<%  } else  { -%>
+<%  for(let m = 0; m < vk.f[i].pols.length; ++m) { -%>
+                num := mulmod(num, y, q)
+<%  } -%>
+<%  } -%>
+               
+                let xi := mload(add(pMem, pXi))
+<%  for(let m = 0; m < vk.f[i].openingPoints[0]; ++m) { -%>
+                xi := mulmod(xi, w1_1d1, q)
+<%  } -%>
+
+                num := addmod(num, mod(sub(q, xi), q), q)
 <% if(!extendLoops) { -%>
                 for { let i := 0 } lt(i, <%- vk.f[i].pols.length %>) { i := add(i, 1) } {
  <% } -%> 
@@ -467,14 +544,15 @@ contract ShPlonkVerifier {
                     }
 <% } -%>
 
-<% if(extendLoops) { -%>
-                    lagrange := mload(add(pMem, pLagrange<%- lName %>_<%- l %>))
-                    lagrange := mulmod(lagrange, mload(add(pMem, pLiw<%- `${wName}_${vk.f[i].openingPoints.join("")}` %>Inv_<%- l %>)), q)
+<% if(vk.f[i].pols.length === 1) { -%>
+                        res := addmod(res, acc, q)    
 <% } else { -%>
-                    lagrange := mload(add(pMem, add(pLagrange<%- lName %>_0, mul(i,32))))
-                    lagrange := mulmod(lagrange, mload(add(pMem, add(pLiw<%- `${wName}_${vk.f[i].openingPoints.join("")}` %>Inv_0, mul(i,32)))), q)
+    <% if(extendLoops) { -%>
+                        res := addmod(res, mulmod(acc, mulmod(num,mload(add(pMem, pLiw<%- `${wName}_${vk.f[i].openingPoints.join("")}` %>Inv_<%- l %>)), q), q), q)   
+    <% } else { -%>
+                        res := addmod(res, mulmod(acc, mulmod(num,mload(add(pMem, add(pLiw<%- `${wName}_${vk.f[i].openingPoints.join("")}` %>Inv_0, mul(i,32)))), q), q), q)    
+    <% } -%>
 <% } -%>
-                    res := addmod(res, mulmod(acc, lagrange, q), q)    
 <% if(!extendLoops) { -%>
                 }
 <% } -%>

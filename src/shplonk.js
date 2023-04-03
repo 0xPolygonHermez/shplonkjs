@@ -42,6 +42,7 @@ module.exports.setup = async function setup(config, ptauFilename, options = { })
             }
         }
     }
+    if(!zkey["w1_1d1"]) zkey["w1_1d1"] = computeRootWi(1, 1, config.power, curve, logger);
 
     return {zkey, PTau, curve};
 }
@@ -206,9 +207,11 @@ module.exports.verifyOpenings = async function verifyOpenings(vk, commits, evalu
 
     // Calculate challenge Y from W commit
     const challengeY = computeChallengeY(commits.W, challengeAlpha, curve, logger);
-    
+    const powerW = lcm(Object.keys(vk).filter(k => k.match(/^w\d+$/)).map(wi => wi.slice(1)));
+    let challengeXi = curve.Fr.exp(xiSeed, powerW);
+
     // Calculate the evaluation of each ri at challengeY
-    const r = computeRVerifier(vk.f, orderedEvals, roots, challengeY, curve, logger);
+    const r = computeRVerifier(vk, orderedEvals, roots, challengeY, challengeXi, curve, logger);
 
     // Calculate quotients of the roots so that it is easier to calculate F and E
     const quotients = calculateQuotients(challengeY, challengeAlpha, roots, curve, logger);
