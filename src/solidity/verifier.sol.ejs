@@ -328,9 +328,17 @@ contract ShPlonkVerifier {
 <% } -%>
                 // Compute xin
                 let xin := 1
+<%  if(extendLoops)  { -%>
 <%  for ( let i = 0; i < vk.powerW; i++) { -%>
                 xin:= mulmod(xin, xiSeed, q)
 <%  }   -%>
+<%  } else {   -%>
+                for { let i := 0 } lt(i, <%- vk.powerW %>) {i := add(i, 1)} {
+                    xin:= mulmod(xin, xiSeed, q)
+                }
+<%  }   -%>
+
+
 
                 mstore(add(pMem, pXi), xin)
 
@@ -721,8 +729,12 @@ contract ShPlonkVerifier {
                 // Prepare shared numerator between F, E and J to reuse it
                 let y := mload(add(pMem, pY))
                 let numerator := 1
-<% for(let i = 0; i < vk.f[0].pols.length * vk.f[0].openingPoints.length; ++i) { -%>
-                numerator := mulmod(numerator, addmod(y, mod(sub(q, mload(add(pMem, pw<%- vk.f[0].pols.length %>_<%- i %>))), q), q), q)
+
+<% for(let i = 0; i < vk.f[0].openingPoints.length; ++i) { -%>
+<% for(let j = 0; j < vk.f[0].pols.length; ++j) { -%>
+<%  let wName = vk.f[0].openingPoints[i] === 0 ? vk.f[0].pols.length : `${vk.f[0].pols.length}_${vk.f[0].openingPoints[i]}d${vk.f[0].pols.length}` -%>
+        numerator := mulmod(numerator, addmod(y, mod(sub(q, mload(add(pMem, pw<%- wName %>_<%- j %>))), q), q), q)
+<% } -%>
 <% } -%>
                 
                 // Prepare shared quotient between F and E to reuse it

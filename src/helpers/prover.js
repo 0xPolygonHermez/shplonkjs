@@ -51,20 +51,22 @@ exports.calculateEvaluations = function calculateEvaluations(pk, polynomials, xi
     const powerW = lcm(Object.keys(pk).filter(k => k.match(/^w\d+$/)).map(wi => wi.slice(1)));
 
     let challengeXi = curve.Fr.exp(xiSeed, powerW);
-    openingPoints.push(challengeXi);
-
-    // Calculate all the subsequent opening points zw, zw²... and add it to opening points
-    let challengeXiw = challengeXi;
-
+    
     let nOpening = [];
     for(let i = 0; i < pk.f.length; ++i) {
         for(let j = 0; j < pk.f[i].openingPoints.length; ++j) {
             if(!nOpening.includes(pk.f[i].openingPoints[j])) nOpening.push(pk.f[i].openingPoints[j])
         }
     }
-    for(let i = 1; i < nOpening.length; ++i) {
-        challengeXiw = curve.Fr.mul(challengeXiw, pk["w1_1d1"]);
-        openingPoints.push(challengeXiw);
+
+    for(let i = 0; i < nOpening.length; ++i) {
+        // Calculate all the subsequent opening points z, zw, zw²... and add it to opening points
+        let xi = challengeXi;
+        for(let j = 0; j < nOpening[i]; ++j) {
+            xi = curve.Fr.mul(xi, pk["w1_1d1"]);
+        }
+
+        openingPoints.push(xi);
     }
         
     // Calculate evaluations
@@ -72,8 +74,8 @@ exports.calculateEvaluations = function calculateEvaluations(pk, polynomials, xi
     for(let i = 0; i < pk.f.length; ++i) {
         for(let j = 0; j < pk.f[i].openingPoints.length; ++j) {
             for(let k = 0; k < pk.f[i].pols.length; ++k) {
-                const openingIndex = pk.f[i].openingPoints[j];
-                const wPower = openingIndex === 0 ? "" : openingIndex === 1 ? "w" : `w${openingIndex}`;
+                const openingIndex = nOpening.indexOf(pk.f[i].openingPoints[j]);
+                const wPower = pk.f[i].openingPoints[j] === 0 ? "" : pk.f[i].openingPoints[j] === 1 ? "w" : `w${pk.f[i].openingPoints[j]}`;
                 const polName = pk.f[i].pols[k];
 
                 // The polynomial must be committed previously in order to be opened
@@ -104,9 +106,16 @@ exports.computeW = function computeW(f, r, roots, challengeAlpha, openingPoints,
         fi.mulScalar(challenge);
         challenge = curve.Fr.mul(challenge, challengeAlpha);
     
+        let nOpening = [];
+        for(let i = 0; i < f.length; ++i) {
+            for(let j = 0; j < f[i].openingPoints.length; ++j) {
+                if(!nOpening.includes(f[i].openingPoints[j])) nOpening.push(f[i].openingPoints[j])
+            }
+        }
+
         for(let k = 0; k < f[i].openingPoints.length; k++) {
             const nRoots = roots[i][k].length;
-            fi.divByZerofier(nRoots, openingPoints[f[i].openingPoints[k]]);
+            fi.divByZerofier(nRoots, openingPoints[nOpening.indexOf(f[i].openingPoints[k])]);
         }
         
         if(i === 0) {

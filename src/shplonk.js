@@ -16,7 +16,7 @@ module.exports.setup = async function setup(config, ptauFilename, options = { })
     const f = config.openBy === "stage" ? getFByStage(config) : getFByOpeningPoints(config);
 
     // Currently, the base case in which only one fi is provided is not supported
-    if(f.length === 1) throw new Error("Need to provide at least to fi.");
+    if(f.length === 1) throw new Error("Need to provide at least two fi.");
 
     // Get all the different generators needed in the protocol 
     const wPowers = getPowersW(f);

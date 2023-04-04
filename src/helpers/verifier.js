@@ -28,21 +28,11 @@ function computeLagrangeTwoOpeningPoints(roots, value, xi0, xi1, curve) {
     const len = roots[0].length;
     const n = len * roots.length;
 
-    console.log(len, n);
-
     const num1 = Fr.exp(value, n);
-
-    console.log(n, Fr.toString(num1));
 
     const num2 = Fr.mul(Fr.add(xi0, xi1), Fr.exp(value, len));
     const num3 = Fr.mul(xi0, xi1);
     const num = Fr.add(Fr.sub(num1, num2), num3);
-
-    console.log(Fr.toString(num1));
-    console.log(Fr.toString(num2));
-
-    console.log(Fr.toString(num3));
-
 
     let den1 = Fr.mul(Fr.mul(Fr.e(len), Fr.exp(roots[0][0], len - 2)), Fr.sub(xi0, xi1));
     for (let i = 0; i < len; i++) {
