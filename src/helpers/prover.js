@@ -245,6 +245,12 @@ function computeLiTwoOpeningPoints(toInverse, roots, value, xi0, xi1, curve) {
 
     const len = roots[0].length;
 
+    if(len === 1) {
+        toInverse.push(Fr.sub(roots[0][0], roots[1][0]));
+        toInverse.push(Fr.sub(roots[1][0], roots[0][0]));
+        return;
+    }
+
     let den1 = Fr.mul(Fr.mul(Fr.e(len), Fr.exp(roots[0][0], len - 2)), Fr.sub(xi0, xi1));
     for (let i = 0; i < len; i++) {
         const den2 = roots[0][(len - 1) * i % len];
@@ -266,11 +272,11 @@ function computeLiTwoOpeningPoints(toInverse, roots, value, xi0, xi1, curve) {
 function computeLiSingleOpeningPoint(toInverse, roots, x, curve, logger) {
     const Fr = curve.Fr;
     const len = roots.length;
+    
+    if(len === 1) return;
 
     const den1 = Fr.mul(Fr.e(len), Fr.exp(roots[0], len - 2));
 
-    if(len === 1) return [curve.Fr.one];
-    
     for (let i = 0; i < len; i++) {
         const den2 = roots[((len - 1) * i) % len];
         const den3 = Fr.sub(x, roots[i]);

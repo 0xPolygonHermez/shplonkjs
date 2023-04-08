@@ -328,7 +328,7 @@ contract ShPlonkVerifier {
 <% } -%>
                 // Compute xin
                 let xin := 1
-<%  if(extendLoops)  { -%>
+<%  if(extendLoops && vk.powerW <= 12)  { -%>
 <%  for ( let i = 0; i < vk.powerW; i++) { -%>
                 xin:= mulmod(xin, xiSeed, q)
 <%  }   -%>
@@ -504,6 +504,17 @@ contract ShPlonkVerifier {
 <%          laNames.push(laName); -%>
 <%          if(vk.f[i].pols.length > 1) { -%>
                 calcLagrange<%- laName %>(pMem)
+<%          } else if (vk.f[i].openingPoints.length > 1) { -%>
+<%  let wName1 = vk.f[i].openingPoints[1] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[1]}d${vk.f[i].pols.length}` -%>
+<%  let liName0 = vk.f[i].openingPoints[0] === 0 ? `${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[0]}d${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` -%>
+<%  let liName1 = vk.f[i].openingPoints[1] === 0 ? `${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[1]}d${vk.f[i].pols.length}_${vk.f[i].openingPoints.join("")}` -%>
+                
+                xi := mod(sub(q, mload(add(pMem, pw<%- wName1 %>_0))), q)
+                mstore(add(pMem, pLiw<%- liName0 %>Inv_0), addmod(mload(add(pMem, pw<%- wName0 %>_0)), xi, q))
+
+                xi := mod(sub(q, mload(add(pMem, pw<%- wName0 %>_0))), q)
+                mstore(add(pMem, pLiw<%- liName1 %>Inv_0), addmod(mload(add(pMem, pw<%- wName1 %>_0)), xi, q))
+
 <%          } -%>
 <%      } -%>
 <%  } -%>
@@ -589,9 +600,10 @@ contract ShPlonkVerifier {
 <%      } else { -%>
             function computeR<%- i %>( pMem <%- nonCommittedPols.length > 0 && nonCommittedPols.some(r=> vk.f[i].pols.includes(r)) ? ",pNonCommittedPols" : "" %>) {
                 let res
-<% if(vk.f[i].openingPoints.length === 2) { -%>
                 let y := mload(add(pMem, pY))
-                let num := 1
+                let num
+<% if(vk.f[i].openingPoints.length === 2 && vk.f[i].pols.length > 1) { -%>
+                num := 1
 <% for (let l = 0; l < vk.f[i].openingPoints.length * vk.f[i].pols.length; l++) { -%>
                 num := mulmod(y, num, q)
 <% } -%>
@@ -658,10 +670,17 @@ contract ShPlonkVerifier {
 <% } -%>
 
 <% if(vk.f[i].openingPoints.length === 2) { -%>
+<% if(vk.f[i].pols.length > 1) { -%>
 <% if(extendLoops) { -%>
                     res := addmod(res, mulmod(acc, mulmod(num,mload(add(pMem, pLiw<%- `${wName}_${vk.f[i].openingPoints.join("")}` %>Inv_<%- l %>)), q), q), q)   
 <% } else { -%>
                     res := addmod(res, mulmod(acc, mulmod(num,mload(add(pMem, add(pLiw<%- `${wName}_${vk.f[i].openingPoints.join("")}` %>Inv_0, mul(i,32)))), q), q), q)    
+<% } -%>
+<% } else { -%>
+<%  let wName1 = vk.f[i].openingPoints[1] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[1]}d${vk.f[i].pols.length}` -%>
+                    num := addmod(y, mod(sub(q, mload(add(pMem, pw<%- k === 0 ? wName1 : wName0 %>_0))), q), q)
+                    res := addmod(res, mulmod(acc, mulmod(num,mload(add(pMem, pLiw<%- `${wName}_${vk.f[i].openingPoints.join("")}` %>Inv_<%- l %>)), q), q), q)      
+
 <% } -%>
 <% } else { -%>
 <% if(extendLoops) { -%>
@@ -733,7 +752,7 @@ contract ShPlonkVerifier {
 <% for(let i = 0; i < vk.f[0].openingPoints.length; ++i) { -%>
 <% for(let j = 0; j < vk.f[0].pols.length; ++j) { -%>
 <%  let wName = vk.f[0].openingPoints[i] === 0 ? vk.f[0].pols.length : `${vk.f[0].pols.length}_${vk.f[0].openingPoints[i]}d${vk.f[0].pols.length}` -%>
-        numerator := mulmod(numerator, addmod(y, mod(sub(q, mload(add(pMem, pw<%- wName %>_<%- j %>))), q), q), q)
+                numerator := mulmod(numerator, addmod(y, mod(sub(q, mload(add(pMem, pw<%- wName %>_<%- j %>))), q), q), q)
 <% } -%>
 <% } -%>
                 

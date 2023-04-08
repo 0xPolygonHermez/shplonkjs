@@ -28,6 +28,13 @@ function computeLagrangeTwoOpeningPoints(roots, value, xi0, xi1, curve) {
     const len = roots[0].length;
     const n = len * roots.length;
 
+    if(len === 1) {
+        return [
+            Fr.div(Fr.sub(value, roots[1][0]), Fr.sub(roots[0][0], roots[1][0])),
+            Fr.div(Fr.sub(value, roots[0][0]), Fr.sub(roots[1][0], roots[0][0]))
+        ]
+    }
+
     const num1 = Fr.exp(value, n);
 
     const num2 = Fr.mul(Fr.add(xi0, xi1), Fr.exp(value, len));
