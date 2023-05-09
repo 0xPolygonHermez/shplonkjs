@@ -1,0 +1,22 @@
+{
+    "name": "shplonkjs-tests",
+    "private": true,
+    "scripts": {
+      "test": "npx hardhat test",
+      "test-shplonk": "npx hardhat test test/shplonk.test.js",
+      "test-polynomial": "mocha test/polynomials.test.js"
+    },
+    "devDependencies": {
+      "@nomiclabs/hardhat-ethers": "^2.2.3",
+      "@nomiclabs/hardhat-waffle": "^2.0.5",
+      "@nomicfoundation/hardhat-toolbox": "^2.0.2",
+      "chai": "^4.3.7",
+      "ethereum-waffle": "^4.0.10",
+      "ethers": "^5.7.2",
+      "ffjavascript": "0.2.57",
+      "hardhat": "^2.14.0",
+      "mocha": "^10.2.0",
+      "shplonkjs": "file:.."
+    }
+  }
+  

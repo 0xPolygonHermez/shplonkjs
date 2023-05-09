@@ -15,6 +15,7 @@ module.exports.getOrderedEvals = require("./src/helpers/helpers.js").getOrderedE
 module.exports.sumCommits = require("./src/helpers/helpers.js").sumCommits;
 module.exports.sumPolynomials = require("./src/helpers/helpers.js").sumPolynomials;
 module.exports.lcm = require("./src/utils.js").lcm;
+module.exports.log2 = require("./src/utils.js").log2;
 module.exports.Polynomial = require("./src/polynomial/polynomial").Polynomial;
 module.exports.CPolynomial = require("./src/polynomial/cpolynomial").CPolynomial;
 module.exports.Keccak256Transcript = require("./src/Keccak256Transcript").Keccak256Transcript;

@@ -1,6 +1,4 @@
 const { getOrderedEvals } = require("../helpers/helpers.js");
-const fs = require("fs");
-const {ethers} = require("hardhat");
 
 function i2hex(i) {
     return ("0" + i.toString(16)).slice(-2);
@@ -70,18 +68,18 @@ module.exports.exportCalldata = async function exportCalldata(vk, commits, evalu
     const proofHex = [];
     const proofSize = orderedEvalsCommitted.length + 1 + (fCommitted.length * 2) + 4;
     for(let i = 0; i < proofSize; ++i) {
-        proofHex.push(ethers.utils.hexZeroPad(`0x${proofStringHex.slice(i*64, (i+1)*64)}`, 32));
+        proofHex.push(`0x${proofStringHex.slice(i*64, (i+1)*64).padStart(64, '0')}`);
     }
     let inputs = [proofHex];
     if(options.xiSeed) {
-        inputs.push(ethers.utils.hexlify(options.xiSeed));
+        inputs.push(`0x${options.xiSeed.toString(16).padStart(64, '0')}`);
     }
 
     if(nonCommittedPols.length > 0) {
         const nonCommittedEvalsStringHex = Array.from(nonCommittedEvalsBuff).map(i2hex).join("");
         const nonCommittedEvalsHex = [];
         for(let i = 0; i < orderedEvalsNonCommitted.length; ++i) {
-            nonCommittedEvalsHex.push(ethers.utils.hexZeroPad(`0x${nonCommittedEvalsStringHex.slice(i*64, (i+1)*64)}`, 32));
+            nonCommittedEvalsHex.push(`0x${nonCommittedEvalsStringHex.slice(i*64, (i+1)*64).padStart(64, '0')}`);
         }
         inputs.push(nonCommittedEvalsHex);
     }

@@ -1,13 +1,10 @@
 const {BigBuffer, getCurveFromName} = require("ffjavascript");
-const {Polynomial} = require("../src/polynomial/polynomial.js");
-const {CPolynomial} = require("../src/polynomial/cpolynomial.js");
 const assert = require("assert");
 const path = require("path");
-const {log2} = require("../src/utils.js");
 
-const { sumCommits, sumPolynomials } = require('../src/helpers/helpers.js');
 const { readBinFile } = require('@iden3/binfileutils');
 
+const shplonkjs = require("shplonkjs");
 
 describe("Polynomials composition test suite", function () {
     this.timeout(1000000000);
@@ -52,31 +49,31 @@ describe("Polynomials composition test suite", function () {
         const ctx = {};
         let c = 0;
         for(let i = 0; i < pols.length; ++i) {
-            const lengthBuffer = 2 ** (log2(pols[i].degree) + 1);
-            ctx[pols[i].name] = new Polynomial(new BigBuffer(lengthBuffer * sFr), curve);
+            const lengthBuffer = 2 ** (shplonkjs.log2(pols[i].degree) + 1);
+            ctx[pols[i].name] = new shplonkjs.Polynomial(new BigBuffer(lengthBuffer * sFr), curve);
             for(let j = 0; j < pols[i].degree; ++j) {
                 ctx[pols[i].name].setCoef(j, curve.Fr.e(c++));
             }
         }
 
-        const cPol = new CPolynomial(pols.length, curve);
+        const cPol = new shplonkjs.CPolynomial(pols.length, curve);
         const cPols = [];
         const promises = [];
         for(let i = 0; i < pols.length; ++i) {
             cPol.addPolynomial(i, ctx[pols[i].name]);
-            cPols[i] = new CPolynomial(pols.length, curve);
+            cPols[i] = new shplonkjs.CPolynomial(pols.length, curve);
             cPols[i].addPolynomial(i, ctx[pols[i].name]);
             promises.push(cPols[i].getPolynomial().multiExponentiation(PTau));
         }
 
         const composedCommits = await Promise.all(promises);
-        const commitsSum = sumCommits(composedCommits, curve);
+        const commitsSum = shplonkjs.sumCommits(composedCommits, curve);
 
         const commit = await cPol.getPolynomial().multiExponentiation(PTau);
 
         assert(curve.Fr.eq(commit, commitsSum));
 
-        const composedPol = sumPolynomials(cPols.map(p => p.getPolynomial()), curve);
+        const composedPol = shplonkjs.sumPolynomials(cPols.map(p => p.getPolynomial()), curve);
 
         assert(composedPol.length() === cPol.getPolynomial().length());
         for(let i = 0; i < composedPol.length; ++i) {

@@ -1,14 +1,11 @@
 const {BigBuffer, F1Field} = require("ffjavascript");
 const path = require("path");
 const {expect} = require("chai");
-const {Polynomial} = require("../src/polynomial/polynomial.js");
-const { commit, open, setup, verifyOpenings } = require("../src/shplonk.js");
-const {exportCalldata} = require("../src/solidity/exportCalldata.js");
-const {exportSolidityVerifier} = require("../src/solidity/exportSolidityVerifier.js");
 const assert = require("assert");
 const fs = require("fs");
-const {log2} = require("../src/utils.js");
 const {ethers, run} = require("hardhat");
+
+const shplonkjs = require("shplonkjs");
 
 describe("Shplonk test suite", function () {
     this.timeout(1000000000);
@@ -19,7 +16,7 @@ describe("Shplonk test suite", function () {
         const xiSeed = options.xiSeed;
         const nonCommittedPols = options.nonCommittedPols ? options.nonCommittedPols : [];
 
-        const {zkey, PTau, curve} = await setup(config, ptauFilename);
+        const {zkey, PTau, curve} = await shplonkjs.setup(config, ptauFilename);
     
         const sFr = curve.Fr.n8;    
 
@@ -35,8 +32,8 @@ describe("Shplonk test suite", function () {
         const ctx = {};
         let c = 100;
         for(let i = 0; i < pols.length; ++i) {
-            const lengthBuffer = 2 ** (log2(pols[i].degree) + 1);
-            ctx[pols[i].name] = new Polynomial(new BigBuffer(lengthBuffer * sFr), curve);
+            const lengthBuffer = 2 ** (shplonkjs.log2(pols[i].degree) + 1);
+            ctx[pols[i].name] = new shplonkjs.Polynomial(new BigBuffer(lengthBuffer * sFr), curve);
             for(let j = 0; j <= pols[i].degree; ++j) {
                 ctx[pols[i].name].setCoef(j, curve.Fr.e(c++));
             }
@@ -46,15 +43,15 @@ describe("Shplonk test suite", function () {
 
         const stages = [...new Set(config.polDefs.flat().map(p => p.stage))];
         for(let i = 0; i < stages.length; ++i) {
-            const commitsStage = await commit(stages[i], zkey, ctx, PTau, curve, {multiExp: true});        
+            const commitsStage = await shplonkjs.commit(stages[i], zkey, ctx, PTau, curve, {multiExp: true});        
             for(let j = 0; j < commitsStage.length; ++j) {
                 committedPols[`${commitsStage[j].index}`] = {commit: commitsStage[j].commit, pol: commitsStage[j].pol}
             }
         }
         
-        const [commits, evaluations] = await open(zkey, PTau, ctx, committedPols, curve, options);
+        const [commits, evaluations] = await shplonkjs.open(zkey, PTau, ctx, committedPols, curve, options);
 
-        const isValid = await verifyOpenings(zkey, commits, evaluations, curve, options);
+        const isValid = await shplonkjs.verifyOpenings(zkey, commits, evaluations, curve, options);
         assert(isValid);
 
         if (!fs.existsSync(`./tmp/calldata`)){
@@ -79,15 +76,15 @@ describe("Shplonk test suite", function () {
 
         zkey.X_2 = curve.G2.toObject(zkey.X_2);
 
-        const inputs = await exportCalldata(zkey, commits, evaluations, curve, options);
-        const verifierCode = await exportSolidityVerifier(zkey, curve, options);
+        const inputs = await shplonkjs.exportCalldata(zkey, commits, evaluations, curve, options);
+        const verifierCode = await shplonkjs.exportSolidityShPlonkVerifier(zkey, curve, options);
         
-        fs.writeFileSync(`tmp/calldata/shplonk_calldata_${tmpName}.txt`, inputs, "utf-8");
-        fs.writeFileSync(`tmp/contracts/shplonk_verifier_${tmpName}.sol`, verifierCode, "utf-8");
+        fs.writeFileSync(`./tmp/calldata/shplonk_calldata_${tmpName}.txt`, inputs, "utf-8");
+        fs.writeFileSync(`./tmp/contracts/shplonk_verifier_${tmpName}.sol`, verifierCode, "utf-8");
 
         await run("compile");
 
-        const ShPlonkVerifier = await ethers.getContractFactory(`tmp/contracts/shplonk_verifier_${tmpName}.sol:ShPlonkVerifier`);
+        const ShPlonkVerifier = await ethers.getContractFactory(`./tmp/contracts/shplonk_verifier_${tmpName}.sol:ShPlonkVerifier`);
         const shPlonkVerifier = await ShPlonkVerifier.deploy();
 
         await shPlonkVerifier.deployed();

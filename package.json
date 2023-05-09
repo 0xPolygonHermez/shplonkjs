@@ -4,9 +4,9 @@
   "description": "shPLONK javascript implementation",
   "main": "index.js",
   "scripts": {
-    "test-shplonk": "npx hardhat test test/shplonk.test.js",
-    "test-polynomial": "mocha test/polynomials.test.js",
-    "test": "npx hardhat test"
+    "test": "npm run --prefix shplonkjs-tests test",
+    "test-shplonk": "npm run --prefix shplonkjs-tests test-shplonk",
+    "test-polynomial": "npm run --prefix shplonkjs-tests test-polynomial"
   },
   "repository": {
     "type": "git",
@@ -37,11 +37,5 @@
     "ejs": "^3.1.8",
     "ffjavascript": "^0.2.57",
     "js-sha3": "^0.8.0"
-  },
-  "devDependencies": {
-    "hardhat": "^2.13.0",
-    "@nomiclabs/hardhat-ethers": "^2.2.2",
-    "@nomicfoundation/hardhat-toolbox": "^2.0.2",
-    "@nomiclabs/hardhat-waffle": "^2.0.5"
   }
 }
