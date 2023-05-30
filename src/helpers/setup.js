@@ -323,7 +323,7 @@ exports.getPowersOfTau = async function getPowersOfTau(f, ptauFilename, power, l
     const sG1 = curve.G1.F.n8 * 2;
     const sG2 = curve.G2.F.n8 * 2;
     
-    const maxFiDegree = Math.max(...f.map(fi => fi.degree));
+    const maxFiDegree = Math.max(...f.map(fi => fi.degree)) + 1;
 
     const nDomainSize = Math.ceil(maxFiDegree / Math.pow(2, power));
     const pow2DomainSize = Math.pow(2, Math.ceil(Math.log2(nDomainSize)));
@@ -336,7 +336,7 @@ exports.getPowersOfTau = async function getPowersOfTau(f, ptauFilename, power, l
     }
 
     const PTau = new BigBuffer(Math.pow(2, power) * pow2DomainSize * sG1);
-    await fdPTau.readToBuffer(PTau, 0, (maxFiDegree + 1) * sG1, pTauSections[2][0].p);
+    await fdPTau.readToBuffer(PTau, 0, maxFiDegree * sG1, pTauSections[2][0].p);
     
     const X_2 = await fdPTau.read(sG2, pTauSections[3][0].p + sG2);
 
