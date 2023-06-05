@@ -7,13 +7,24 @@ const {log2, lcm} = require("../utils.js");
  * Compute xiSeed, which is used to compute all the roots
  * It contains all the committed polynomials
  */
-module.exports.computeChallengeXiSeed = function computeChallengeXiSeed(commits, curve, logger) {
+module.exports.computeChallengeXiSeed = function computeChallengeXiSeed(commits, curve, options) {
+
+    const logger = options.logger;
+
+        
     // Initialize new transcript
     const transcript = new Keccak256Transcript(curve);
 
+    if(options.fflonkPreviousChallenge) {
+        transcript.addScalar(options.fflonkPreviousChallenge);
+        commits = commits.filter(c => c.stages[0].stage !== 0);
+    }
+
+    const commitsValues = commits.map(c => c.commit);
+    
     // Add all commits to the transcript
-    for(let i = 0; i < commits.length; ++i) {
-        transcript.addPolCommitment(commits[i]);
+    for(let i = 0; i < commitsValues.length; ++i) {
+        transcript.addPolCommitment(commitsValues[i]);
     }
 
     // Calculate the challenge

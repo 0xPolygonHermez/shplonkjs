@@ -137,7 +137,7 @@ module.exports.open = async function open(pk, PTau, polynomials, committedPols, 
     }
 
     // Calculate the xiSeed from all the committed polynomials
-    const xiSeed = options.xiSeed ? curve.Fr.e(options.xiSeed) : computeChallengeXiSeed(pk.f.sort((a,b) => a.index - b.index).map(fi => fi.commit), curve, logger);
+    const xiSeed = options.xiSeed ? curve.Fr.e(options.xiSeed) : computeChallengeXiSeed(pk.f.sort((a,b) => a.index - b.index), curve, {logger, fflonkPreviousChallenge: options.fflonkPreviousChallenge });
 
     const nonCommittedPols = options.nonCommittedPols ? options.nonCommittedPols : [];
     
@@ -194,7 +194,7 @@ module.exports.verifyOpenings = async function verifyOpenings(vk, commits, evalu
     }
 
     // Calculate the xiSeed from all the committed polynomials
-    const xiSeed =  options.xiSeed ? curve.Fr.e(options.xiSeed) : computeChallengeXiSeed(vk.f.sort((a,b) => a.index - b.index).map(fi => fi.commit), curve, logger);
+    const xiSeed =  options.xiSeed ? curve.Fr.e(options.xiSeed) : computeChallengeXiSeed(vk.f.sort((a,b) => a.index - b.index), curve, {logger, fflonkPreviousChallenge: options.fflonkPreviousChallenge});
 
     const nonCommittedPols = options.nonCommittedPols ? options.nonCommittedPols : [];
 

@@ -62,20 +62,6 @@ describe("Shplonk test suite", function () {
             fs.mkdirSync(`./tmp/contracts`, {recursive: true});
         }
 
-        for(let i = 0; i < zkey.f.length; ++i) {
-            if(zkey.f[i].stages.length === 1 && zkey.f[i].stages[0].stage === 0) {
-                if(!commits[`f${zkey.f[i].index}`]) throw new Error(`f${zkey.f[i].index} commit is missing`);
-                zkey[`f${zkey.f[i].index}`] = curve.G1.toObject(commits[`f${zkey.f[i].index}`]);
-            }
-        }
-
-        const ws = Object.keys(zkey).filter(k => k.match(/^w\d/));    
-        for(let i = 0; i < ws.length; ++i) {
-            zkey[ws[i]] = curve.Fr.toObject(zkey[ws[i]]);
-        }
-
-        zkey.X_2 = curve.G2.toObject(zkey.X_2);
-
         const inputs = await shplonkjs.exportCalldata(zkey, commits, evaluations, curve, options);
         const verifierCode = await shplonkjs.exportSolidityShPlonkVerifier(zkey, curve, options);
         

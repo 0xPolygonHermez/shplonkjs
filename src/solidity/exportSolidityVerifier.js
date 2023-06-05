@@ -13,6 +13,11 @@ module.exports.exportSolidityVerifier = async function exportSolidityVerifier(vk
 
     const xiSeed = options.xiSeed ? true : false;
 
+    for(let i = 0; i < vk.f.length; ++i) {
+        if(vk.f[i].stages.length === 1 && vk.f[i].stages[0].stage === 0) {
+            vk.f[i].commit = curve.G1.toObject(vk.f[i].commit);
+        }
+    }
 
     // Sort f by index
     vk.f.sort((a, b) => a.index - b.index);
@@ -24,7 +29,7 @@ module.exports.exportSolidityVerifier = async function exportSolidityVerifier(vk
     const ws = {};
     for(let i = 0; i < omegas.length; ++i) {
         if(omegas[i].includes("_")) {
-            ws[omegas[i]] = vk[omegas[i]];
+            ws[omegas[i]] = toVkey(vk[omegas[i]]);
             continue;
         }
         let acc = curve.Fr.one;
@@ -34,6 +39,9 @@ module.exports.exportSolidityVerifier = async function exportSolidityVerifier(vk
             ws[`w${pow}_${j}`] = toVkey(acc);
         }
     }
+
+    vk.X_2 = curve.G2.toObject(vk.X_2);
+
 
     const powerW = lcm(Object.keys(vk).filter(k => k.match(/^w\d+$/)).map(wi => wi.slice(1)));
 
@@ -45,7 +53,7 @@ module.exports.exportSolidityVerifier = async function exportSolidityVerifier(vk
 
     orderedEvals.push({name: "inv"});
 
-    orderedEvals = orderedEvals.map(e => e.name);
+    orderedEvals = orderedEvals.map(e => e.name.replace(".", "_"));
 
     const obj = {
         vk,

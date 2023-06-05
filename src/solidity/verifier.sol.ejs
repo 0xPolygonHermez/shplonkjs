@@ -24,8 +24,8 @@ contract ShPlonkVerifier {
 
 <%  for(let i = 0; i < vk.f.length; ++i) { -%>
 <%      if(vk.f[i].stages.length === 1 && vk.f[i].stages[0].stage === 0) {  -%>
-    uint256 constant f<%- vk.f[i].index %>x = <%= vk[`f${vk.f[i].index}`][0] %>;
-    uint256 constant f<%- vk.f[i].index %>y = <%= vk[`f${vk.f[i].index}`][1] %>;
+    uint256 constant f<%- vk.f[i].index %>x = <%= vk.f[i].commit[0] %>;
+    uint256 constant f<%- vk.f[i].index %>y = <%= vk.f[i].commit[1] %>;
 <%      } -%>
 <%  } -%>
 
@@ -328,17 +328,14 @@ contract ShPlonkVerifier {
 <% } -%>
                 // Compute xin
                 let xin := 1
-<%  if(extendLoops && vk.powerW <= 12)  { -%>
-<%  for ( let i = 0; i < vk.powerW; i++) { -%>
-                xin:= mulmod(xin, xiSeed, q)
+                let h := xiSeed
+<%  let binaryPowerW = vk.powerW.toString(2).split('').reverse().join(''); -%>
+<%  for ( let i = 0; i < binaryPowerW.length; i++) { -%>
+<%  if(binaryPowerW[i] === '1') { -%>
+                xin := mulmod(xin, h, q)
 <%  }   -%>
-<%  } else {   -%>
-                for { let i := 0 } lt(i, <%- vk.powerW %>) {i := add(i, 1)} {
-                    xin:= mulmod(xin, xiSeed, q)
-                }
+                h := mulmod(h, h, q)
 <%  }   -%>
-
-
 
                 mstore(add(pMem, pXi), xin)
 
@@ -399,6 +396,7 @@ contract ShPlonkVerifier {
                 let den2
                 let den3
                 let root0
+                let h
 
                 let pxi := mload(0x40)
 <%  if(vk.f[i].openingPoints.length === 2) { -%>
@@ -416,9 +414,14 @@ contract ShPlonkVerifier {
 <%  let wName = vk.f[i].openingPoints[l] === 0 ? vk.f[i].pols.length : `${vk.f[i].pols.length}_${vk.f[i].openingPoints[l]}d${vk.f[i].pols.length}` -%>
                 den1 := <%- vk.f[i].pols.length %>
                 root0 := mload(add(pMem, pw<%- wName %>_0))
-<%  for(let k = 0; k < vk.f[i].pols.length - 2; ++k) { -%>
-                den1 := mulmod(den1, root0, q)
-<%  } -%>
+                h := root0
+<%  let binaryPowerW = (vk.f[i].pols.length - 2).toString(2).split('').reverse().join(''); -%>
+<%  for ( let i = 0; i < binaryPowerW.length; i++) { -%>
+<%  if(binaryPowerW[i] === '1') { -%>
+                den1 := mulmod(den1, h, q)
+<%  }   -%>
+                h := mulmod(h, h, q)
+<%  }   -%>
 <%  if(vk.f[i].openingPoints.length === 2) {-%>
                 den1 := mulmod(den1, addmod(mload(add(pxi, <%- (l % 2)*32 %>)),mod(sub(q, mload(add(pxi, <%- ((l + 1) % 2)*32 %>))), q) ,q), q)
 <%  } -%>
@@ -529,15 +532,15 @@ contract ShPlonkVerifier {
                 let res
                 let num := 1
                 let y := mload(add(pMem, pY))
-<%  if(!extendLoops) { -%>
-                for { let i := 0 } lt(i, <%- vk.f[i].pols.length %>) { i := add(i, 1) } {
-                    num := mulmod(num, y, q)
-                }
-<%  } else  { -%>
-<%  for(let m = 0; m < vk.f[i].pols.length; ++m) { -%>
-                num := mulmod(num, y, q)
-<%  } -%>
-<%  } -%>
+                let h := y
+<%  let binaryPowerW = vk.f[i].pols.length.toString(2).split('').reverse().join(''); -%>
+<%  for ( let i = 0; i < binaryPowerW.length; i++) { -%>
+<%  if(binaryPowerW[i] === '1') { -%>
+                num := mulmod(num, h, q)
+<%  }   -%>
+                h := mulmod(h, h, q)
+<%  }   -%>
+
                
                 let xi := mload(add(pMem, pXi))
 <%  for(let m = 0; m < vk.f[i].openingPoints[0]; ++m) { -%>
@@ -563,7 +566,7 @@ contract ShPlonkVerifier {
 <% } else { -%>
                     root := mload(add(pMem, pw<%- wName %>_<%- l %>))   
 <% } -%>
-                    acc := <%- evalPos0 %>
+                    acc := <%- evalPos0.replace(".", "_") %>
                     accRoot := root
                     
 <%  if(extendLoops || (nonCommittedPols.length > 0 && nonCommittedPols.some(r=> vk.f[i].pols.includes(r)))) { -%>
@@ -571,12 +574,12 @@ contract ShPlonkVerifier {
 <%  const evalPos = nonCommittedPols.length === 0 || !nonCommittedPols.includes(vk.f[i].pols[j] + wPower) 
         ? `calldataload(pEval_${vk.f[i].pols[j] + wPower})` 
         :  `mload(add(pNonCommittedPols, pEval_${vk.f[i].pols[j] + wPower}))`-%>
-                    acc := addmod(acc, mulmod(<%- evalPos %>, accRoot, q), q)
+                    acc := addmod(acc, mulmod(<%- evalPos.replace(".", "_") %>, accRoot, q), q)
                     accRoot := mulmod(accRoot, root, q)
 <% } -%>
 <% } else { -%>
                     for { let j := 1 } lt(j, <%- vk.f[i].pols.length %>) { j := add(j, 1)} {
-                        acc := addmod(acc, mulmod(<%- `calldataload(add(pEval_${vk.f[i].pols[0] + wPower}, mul(j, 32)))` %>, accRoot, q), q)
+                        acc := addmod(acc, mulmod(<%- `calldataload(add(pEval_${(vk.f[i].pols[0] + wPower).replace(".", "_")}, mul(j, 32)))` %>, accRoot, q), q)
                         accRoot := mulmod(accRoot, root, q)
                     }
 <% } -%>
@@ -651,7 +654,7 @@ contract ShPlonkVerifier {
 <% } else { -%>
                     root := mload(add(pMem, pw<%- wName %>_<%- l %>))   
 <% } -%>
-                    acc := <%- evalPos0 %>
+                    acc := <%- evalPos0.replace(".", "_") %>
                     accRoot := root
 
 <%  if(extendLoops || (nonCommittedPols.length > 0 && nonCommittedPols.some(r=> vk.f[i].pols.includes(r)))) { -%>
@@ -659,12 +662,12 @@ contract ShPlonkVerifier {
 <%  const evalPos = nonCommittedPols.length === 0 || !nonCommittedPols.includes(vk.f[i].pols[j] + wPower) 
         ? `calldataload(pEval_${vk.f[i].pols[j] + wPower})` 
         :  `mload(add(pNonCommittedPols, pEval_${vk.f[i].pols[j] + wPower}))`-%>
-                    acc := addmod(acc, mulmod(<%- evalPos %>, accRoot, q), q)
+                    acc := addmod(acc, mulmod(<%- evalPos.replace(".", "_") %>, accRoot, q), q)
                     accRoot := mulmod(accRoot, root, q)
 <% } -%>
 <% } else { -%>
                     for { let j := 1 } lt(j, <%- vk.f[i].pols.length %>) { j := add(j, 1)} {
-                        acc := addmod(acc, mulmod(<%- `calldataload(add(pEval_${vk.f[i].pols[0] + wPower}, mul(j, 32)))` %>, accRoot, q), q)
+                        acc := addmod(acc, mulmod(<%- `calldataload(add(pEval_${(vk.f[i].pols[0] + wPower).replace(".", "_")}, mul(j, 32)))` %>, accRoot, q), q)
                         accRoot := mulmod(accRoot, root, q)
                     }
 <% } -%>
