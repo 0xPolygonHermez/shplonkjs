@@ -239,7 +239,8 @@ contract ShPlonkVerifier {
 
                 mstore(add(pMem, <%- inversionArray[0] %>), acc)
             }
-            
+
+<%  if(checkInputs) { -%>
             function checkField(v) {
                 if iszero(lt(v, q)) {
                     mstore(0, 0)
@@ -262,7 +263,6 @@ contract ShPlonkVerifier {
                 }
             }  
             
-            
             // Validate all the evaluations sent by the prover ∈ F
             function checkInput() {        
                 // Check commitments fullfill bn128 curve equation Y^2 = X^3 + 3
@@ -278,6 +278,7 @@ contract ShPlonkVerifier {
                 checkField(calldataload(pEval_<%- orderedEvals[i] %>))
 <% } -%>
             }
+<% } -%>
 
             function computePowersXi(pMem, xiSeed) {
 <%  const powersXi = degreesXi.map(d => {return {degree: d, power: vk.powerW / d};}).sort((a,b) => a.power - b.power); -%>
@@ -329,7 +330,7 @@ contract ShPlonkVerifier {
                 // Compute xin
                 let xin := 1
                 let h := xiSeed
-<%  let binaryPowerW = vk.powerW.toString(2).split('').reverse().join(''); -%>
+<%  let binaryPowerW = Number(vk.powerW).toString(2).split('').reverse().join(''); -%>
 <%  for ( let i = 0; i < binaryPowerW.length; i++) { -%>
 <%  if(binaryPowerW[i] === '1') { -%>
                 xin := mulmod(xin, h, q)
@@ -415,7 +416,7 @@ contract ShPlonkVerifier {
                 den1 := <%- vk.f[i].pols.length %>
                 root0 := mload(add(pMem, pw<%- wName %>_0))
                 h := root0
-<%  let binaryPowerW = (vk.f[i].pols.length - 2).toString(2).split('').reverse().join(''); -%>
+<%  let binaryPowerW = Number(vk.f[i].pols.length - 2).toString(2).split('').reverse().join(''); -%>
 <%  for ( let i = 0; i < binaryPowerW.length; i++) { -%>
 <%  if(binaryPowerW[i] === '1') { -%>
                 den1 := mulmod(den1, h, q)
@@ -533,7 +534,7 @@ contract ShPlonkVerifier {
                 let num := 1
                 let y := mload(add(pMem, pY))
                 let h := y
-<%  let binaryPowerW = vk.f[i].pols.length.toString(2).split('').reverse().join(''); -%>
+<%  let binaryPowerW = Number(vk.f[i].pols.length).toString(2).split('').reverse().join(''); -%>
 <%  for ( let i = 0; i < binaryPowerW.length; i++) { -%>
 <%  if(binaryPowerW[i] === '1') { -%>
                 num := mulmod(num, h, q)
@@ -841,8 +842,10 @@ contract ShPlonkVerifier {
             let pMem := mload(0x40)
             mstore(0x40, add(pMem, lastMem))
 
+<%  if(checkInputs) { -%>
             // Validate that all evaluations ∈ F
             checkInput()
+<% } -%>
 
 <% let xiSeedValue = xiSeed ? "challengeXiSeed" : "mload(add(pMem, pXiSeed))" -%>
 <% let challengesInput = xiSeed ? "pMem, challengeXiSeed" : "pMem" -%>

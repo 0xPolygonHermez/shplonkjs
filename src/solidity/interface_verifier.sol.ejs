@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: GPL-3.0
+
+pragma solidity >=0.7.0 <0.9.0;
+
+
+/**
+ * @dev Define interface for ShPlonk Verifier contract.
+ */
+interface IShPlonkVerifier {
+<%  let nBytesCommits = (vk.f.filter(fi => fi.stages.length !== 1 || fi.stages[0].stage !== 0).length + 2) * 2 + orderedEvals.length -%>
+    function verifyCommitments(
+<%  if(xiSeed || nonCommittedPols.length > 0) { -%>
+        bytes32[<%- nBytesCommits %>] calldata commits, 
+<%  } else { -%>
+        bytes32[<%- nBytesCommits %>] calldata commits
+<%  } -%>
+<%  if(xiSeed) { -%>
+<%  if(nonCommittedPols.length > 0) { -%>
+        bytes32 challengeXiSeed,
+<%  } else { -%>
+        bytes32 challengeXiSeed
+<%  } -%>
+<%  } -%>
+<%  if(nonCommittedPols.length > 0) { -%>
+        bytes32[<%- nonCommittedPols.length %>] memory nonCommittedPols
+<%  } -%>
+    ) external view returns (bool);
+}
