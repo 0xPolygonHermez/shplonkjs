@@ -335,8 +335,9 @@ exports.getPowersOfTau = async function getPowersOfTau(f, ptauFilename, power, l
         throw new Error("Powers of Tau is not well prepared. Section 3 too small.");
     }
 
-    const PTau = new BigBuffer(Math.pow(2, power) * pow2DomainSize * sG1);
-    await fdPTau.readToBuffer(PTau, 0, maxFiDegree * sG1, pTauSections[2][0].p);
+    const len = Math.pow(2, power) * pow2DomainSize * sG1;
+    const PTau = new BigBuffer(len);
+    await fdPTau.readToBuffer(PTau, 0, len, pTauSections[2][0].p);
     
     const X_2 = await fdPTau.read(sG2, pTauSections[3][0].p + sG2);
 
