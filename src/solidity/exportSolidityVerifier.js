@@ -3,7 +3,6 @@ const {utils} = require("ffjavascript");
 const { getOrderedEvals } = require("../helpers/helpers.js");
 const path = require("path");
 const fs = require("fs");
-const { lcm } = require("../utils.js");
 
 module.exports.exportSolidityVerifier = async function exportSolidityVerifier(vk, curve, options = {}) {
     const logger = options.logger;
@@ -44,11 +43,6 @@ module.exports.exportSolidityVerifier = async function exportSolidityVerifier(vk
     }
 
     vk.X_2 = curve.G2.toObject(vk.X_2);
-
-
-    const powerW = lcm(Object.keys(vk).filter(k => k.match(/^w\d+$/)).map(wi => wi.slice(1)));
-
-    vk.powerW = powerW;
 
     let orderedEvals = getOrderedEvals(vk.f);
 

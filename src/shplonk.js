@@ -24,6 +24,7 @@ module.exports.setup = async function setup(config, ptauFilename, options = { })
     // Calculate the Powers of Tau (checking its validity first) and store it along with X_2, which will be needed for the verifier
     const {PTau, X_2, curve} = await getPowersOfTau(f, ptauFilename, config.power);
 
+
     const zkey = {
         power: config.power,
         f,
@@ -43,6 +44,9 @@ module.exports.setup = async function setup(config, ptauFilename, options = { })
         }
     }
     if(!zkey["w1_1d1"]) zkey["w1_1d1"] = computeRootWi(1, 1, config.power, curve, logger);
+
+    const powerW = lcm(Object.keys(zkey).filter(k => k.match(/^w\d+$/)).map(wi => wi.slice(1)));
+    zkey.powerW = powerW;
 
     return {zkey, PTau, curve};
 }
@@ -172,8 +176,7 @@ module.exports.open = async function open(pk, PTau, polynomials, committedPols, 
 
     // Add the montgomery batched inverse, which is used to calculate the inverses in 
     // the Solidity verifier, to the evaluations
-    const powerW = lcm(Object.keys(pk).filter(k => k.match(/^w\d+$/)).map(wi => wi.slice(1)));
-    let challengeXi = curve.Fr.exp(xiSeed, powerW);
+    let challengeXi = curve.Fr.exp(xiSeed, pk.powerW);
     evaluations.inv = getMontgomeryBatchedInverse(pk, roots, challengeY, challengeXi, curve, logger);
 
     // Return W, Wp, the polynomials evaluations, the xiSeed and the opening points
@@ -209,8 +212,7 @@ module.exports.verifyOpenings = async function verifyOpenings(vk, commits, evalu
 
     // Calculate challenge Y from W commit
     const challengeY = computeChallengeY(commits.W, challengeAlpha, curve, logger);
-    const powerW = lcm(Object.keys(vk).filter(k => k.match(/^w\d+$/)).map(wi => wi.slice(1)));
-    let challengeXi = curve.Fr.exp(xiSeed, powerW);
+    let challengeXi = curve.Fr.exp(xiSeed, vk.powerW);
 
     // Calculate the evaluation of each ri at challengeY
     const r = computeRVerifier(vk, orderedEvals, roots, challengeY, challengeXi, curve, logger);

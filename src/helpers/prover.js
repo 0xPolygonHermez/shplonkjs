@@ -1,6 +1,4 @@
 const {Polynomial} = require("../polynomial/polynomial.js");
-const { Scalar } = require("ffjavascript");
-const { lcm } = require("../utils.js");
 
 /**
  *  Compute the coefficients of Ri(X) from evaluations using lagrange interpolation. R0(X) ∈ F_{<N}[X]
@@ -48,9 +46,7 @@ exports.calculateEvaluations = function calculateEvaluations(pk, polynomials, xi
     const openingPoints = []; 
 
     // Firstly, calculate challenge xi, which will be xiSeed ^ lcm(f)
-    const powerW = lcm(Object.keys(pk).filter(k => k.match(/^w\d+$/)).map(wi => wi.slice(1)));
-
-    let challengeXi = curve.Fr.exp(xiSeed, powerW);
+    let challengeXi = curve.Fr.exp(xiSeed, pk.powerW);
     
     let nOpening = [];
     for(let i = 0; i < pk.f.length; ++i) {
