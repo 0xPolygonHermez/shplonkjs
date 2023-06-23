@@ -48,17 +48,10 @@ exports.calculateEvaluations = function calculateEvaluations(pk, polynomials, xi
     // Firstly, calculate challenge xi, which will be xiSeed ^ lcm(f)
     let challengeXi = curve.Fr.exp(xiSeed, pk.powerW);
     
-    let nOpening = [];
-    for(let i = 0; i < pk.f.length; ++i) {
-        for(let j = 0; j < pk.f[i].openingPoints.length; ++j) {
-            if(!nOpening.includes(pk.f[i].openingPoints[j])) nOpening.push(pk.f[i].openingPoints[j])
-        }
-    }
-
-    for(let i = 0; i < nOpening.length; ++i) {
+    for(let i = 0; i < pk.openingPoints.length; ++i) {
         // Calculate all the subsequent opening points z, zw, zw²... and add it to opening points
         let xi = challengeXi;
-        for(let j = 0; j < nOpening[i]; ++j) {
+        for(let j = 0; j < pk.openingPoints[i]; ++j) {
             xi = curve.Fr.mul(xi, pk["w1_1d1"]);
         }
 
@@ -69,9 +62,9 @@ exports.calculateEvaluations = function calculateEvaluations(pk, polynomials, xi
     const evaluations = {};
     for(let i = 0; i < pk.f.length; ++i) {
         for(let j = 0; j < pk.f[i].openingPoints.length; ++j) {
-            for(let k = 0; k < pk.f[i].pols.length; ++k) {
-                const openingIndex = nOpening.indexOf(pk.f[i].openingPoints[j]);
-                const wPower = pk.f[i].openingPoints[j] === 0 ? "" : pk.f[i].openingPoints[j] === 1 ? "w" : `w${pk.f[i].openingPoints[j]}`;
+            const openingIndex = pk.openingPoints.indexOf(pk.f[i].openingPoints[j]);
+            const wPower = pk.f[i].openingPoints[j] === 0 ? "" : pk.f[i].openingPoints[j] === 1 ? "w" : `w${pk.f[i].openingPoints[j]}`;
+            for(let k = 0; k < pk.f[i].pols.length; ++k) {    
                 const polName = pk.f[i].pols[k];
 
                 // The polynomial must be committed previously in order to be opened
@@ -89,10 +82,10 @@ exports.calculateEvaluations = function calculateEvaluations(pk, polynomials, xi
 /**
  * 
  */
-exports.computeW = function computeW(f, r, roots, challengeAlpha, openingPoints, curve, logger) {
+exports.computeW = function computeW(pk, r, roots, challengeAlpha, openingPoints, curve, logger) {
     if (logger) logger.info("> Computing W polynomial");
 
-    const fPols = f.map(fi => fi.pol);
+    const fPols = pk.f.map(fi => fi.pol);
 
     let W;
     let challenge = curve.Fr.one;
@@ -102,16 +95,11 @@ exports.computeW = function computeW(f, r, roots, challengeAlpha, openingPoints,
         fi.mulScalar(challenge);
         challenge = curve.Fr.mul(challenge, challengeAlpha);
     
-        let nOpening = [];
-        for(let i = 0; i < f.length; ++i) {
-            for(let j = 0; j < f[i].openingPoints.length; ++j) {
-                if(!nOpening.includes(f[i].openingPoints[j])) nOpening.push(f[i].openingPoints[j])
-            }
-        }
 
-        for(let k = 0; k < f[i].openingPoints.length; k++) {
+
+        for(let k = 0; k < pk.f[i].openingPoints.length; k++) {
             const nRoots = roots[i][k].length;
-            fi.divByZerofier(nRoots, openingPoints[nOpening.indexOf(f[i].openingPoints[k])]);
+            fi.divByZerofier(nRoots, openingPoints[pk.openingPoints.indexOf(pk.f[i].openingPoints[k])]);
         }
         
         if(i === 0) {
@@ -121,10 +109,10 @@ exports.computeW = function computeW(f, r, roots, challengeAlpha, openingPoints,
         }
     }
 
-    const nTotalRoots = f.reduce((acc, curr) => acc + curr.pols.length*curr.openingPoints.length,0);
+    const nTotalRoots = pk.f.reduce((acc, curr) => acc + curr.pols.length*curr.openingPoints.length,0);
     let maxDegree = 0;
-    for(let i = 0; i < f.length; ++i) {
-        const fiDegree = f[i].degree + nTotalRoots - f[i].pols.length * f[i].openingPoints.length;
+    for(let i = 0; i < pk.f.length; ++i) {
+        const fiDegree = pk.f[i].degree + nTotalRoots - pk.f[i].pols.length * pk.f[i].openingPoints.length;
         if(fiDegree > maxDegree) maxDegree = fiDegree;
     }
 
@@ -329,7 +317,7 @@ exports.getMontgomeryBatchedInverse = function getMontgomeryBatchedInverse(zkey,
     }
 
     let mulAccumulator = curve.Fr.one;
-    for(let i = 0; i < toInverse.length; ++i) {
+    for(let i = 0; i < toInverse.length; ++i) { 
         mulAccumulator = curve.Fr.mul(mulAccumulator, toInverse[i]);
     }
  

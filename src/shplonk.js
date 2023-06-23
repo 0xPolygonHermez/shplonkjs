@@ -24,11 +24,12 @@ module.exports.setup = async function setup(config, ptauFilename, options = { })
     // Calculate the Powers of Tau (checking its validity first) and store it along with X_2, which will be needed for the verifier
     const {PTau, X_2, curve} = await getPowersOfTau(f, ptauFilename, config.power);
 
-
+    const openingPoints = [...new Set(f.map(fi => fi.openingPoints).flat())];
     const zkey = {
         power: config.power,
         f,
         X_2,
+        openingPoints,
     };
 
     // Compute each of the generators and the corresponding kth-roots and add it to the zkey
@@ -59,49 +60,44 @@ module.exports.commit = async function commit(stage, pk, polynomials, PTau, curv
 
     if (logger) logger.info(`> Commiting polynomials for stage ${stage}`);
 
-    // Sort f by index
-    pk.f.sort((a, b) => a.index - b.index);
-
     // Get all the polynomials that are being committed at the stage provided
-    const fPolsToCommit = [];
-    for(let i = 0; i < pk.f.length; ++i) {
-        const polsStage = pk.f[i].stages.find(s => s.stage === stage);
-        if(polsStage) {
-            fPolsToCommit.push(pk.f[i]);
-        }
-    }
-
+    // and create the composed polynomial for each of the polynomials to commit
     const pols = [];
     const promises = [];
-    // Create the composed polynomial for each of the polynomials to commit
-    for(let i = 0; i < fPolsToCommit.length; ++i) {
-        // Get for each fi that needs to be committed the polynomials that are committed in the current stage
-        const cPols = fPolsToCommit[i].stages.find(s => s.stage === stage).pols;
+    for(let i = 0; i < pk.f.length; ++i) {
+        const fi = pk.f[i];
+        const polsStage = fi.stages.find(s => s.stage === stage);
+        if(polsStage) {
+            // Get for each fi that needs to be committed the polynomials that are committed in the current stage
+            const cPols = fi.stages.find(s => s.stage === stage).pols;
 
-        // Initialize the fi composed polynomial. Keep in mind that maybe not all the polynomials are provided in the same stage 
-        const fPol = new CPolynomial(fPolsToCommit[i].pols.length, curve, logger);
-        for(let j = 0; j < cPols.length; ++j) {
+            // Initialize the fi composed polynomial. Keep in mind that maybe not all the polynomials are provided in the same stage 
+            const fPol = new CPolynomial(fi.pols.length, curve, logger);
 
-            // Check that each polynomial is provided and have the degree specified in the config
-            if(!polynomials[cPols[j].name]) throw new Error(`Polynomial ${cPols[j].name} is not provided`);
-            if(polynomials[cPols[j].name].degree() > cPols[j].degree) {
-                throw new Error(`Polynomial ${cPols[j].name} degree (${polynomials[cPols[j].name].degree()}) doesn't match with the one specified in the config (${cPols[j].degree})`); 
+            for(let j = 0; j < cPols.length; ++j) {
+
+                // Check that each polynomial is provided and have the degree specified in the config
+                if(!polynomials[cPols[j].name]) throw new Error(`Polynomial ${cPols[j].name} is not provided`);
+                if(polynomials[cPols[j].name].degree() > cPols[j].degree) {
+                    throw new Error(`Polynomial ${cPols[j].name} degree (${polynomials[cPols[j].name].degree()}) doesn't match with the one specified in the config (${cPols[j].degree})`); 
+                }
+
+                // Get the position in the composed polynomial of the current pol and add it.
+                const pos = fi.pols.indexOf(cPols[j].name);
+                fPol.addPolynomial(pos, polynomials[cPols[j].name]);
             }
-            // Get the position in the composed polynomial of the current pol and add it.
-            const pos = fPolsToCommit[i].pols.indexOf(cPols[j].name);
-            fPol.addPolynomial(pos, polynomials[cPols[j].name]);
+
+            // The index is composed by the ith f polynomial and the stage. It is done this way because, if polynomials corresponding
+            // to fi are provided in different stages, this pols and commits will need to be added together when opening and verifying
+            // and this is the easiest way to track it.
+            const index = `f${fi.index}_${stage}`;
+            const pol = fPol.getPolynomial();
+
+            // Check that the composed polynomial has been calculated properly
+            if(pol.degree() > fi.degree) throw new Error(`Polynomial ${fi.index} was not properly calculated`);
+
+            pols.push({pol, index});
         }
-
-        // The index is composed by the ith f polynomial and the stage. It is done this way because, if polynomials corresponding
-        // to fi are provided in different stages, this pols and commits will need to be added together when opening and verifying
-        // and this is the easiest way to track it.
-        const index = `f${fPolsToCommit[i].index}_${stage}`;
-        const pol = fPol.getPolynomial();
-
-        // Check that the composed polynomial has been calculated properly
-        if(pol.degree() > fPolsToCommit[i].degree) throw new Error(`Polynomial ${fPolsToCommit[i].index} was not properly calculated`);
-
-        pols[i] = {pol, index};
     }
 
     if(multiExp) {
@@ -161,7 +157,7 @@ module.exports.open = async function open(pk, PTau, polynomials, committedPols, 
     const r = await computeR(pk.f, roots, curve, logger);
 
     // Calculate W
-    const W = computeW(pk.f, r, roots, challengeAlpha, openingPoints, curve, logger);
+    const W = computeW(pk, r, roots, challengeAlpha, openingPoints, curve, logger);
     const commitW = await W.multiExponentiation(PTau);
     commits.W = commitW;
 
