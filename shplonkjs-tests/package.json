@@ -3,8 +3,7 @@
     "private": true,
     "scripts": {
       "test": "npx hardhat test",
-      "test-shplonk": "npx hardhat test test/shplonk.test.js",
-      "test-polynomial": "mocha test/polynomials.test.js"
+      "test-shplonk": "npx hardhat test test/shplonk.test.js"
     },
     "devDependencies": {
       "@nomiclabs/hardhat-ethers": "^2.2.3",

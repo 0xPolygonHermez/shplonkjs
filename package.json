@@ -4,9 +4,10 @@
   "description": "shPLONK javascript implementation",
   "main": "index.js",
   "scripts": {
-    "test": "npm run --prefix shplonkjs-tests test",
-    "test-shplonk": "npm run --prefix shplonkjs-tests test-shplonk",
-    "test-polynomial": "npm run --prefix shplonkjs-tests test-polynomial"
+    "test": "npm run test-shplonk && npm run test-shplonk-sc && npm run test-polynomial",
+    "test-shplonk": "mocha test/shplonk.test.js",
+    "test-shplonk-sc": "npm run --prefix shplonkjs-tests test-shplonk",
+    "test-polynomial": "mocha test/polynomials.test.js"
   },
   "repository": {
     "type": "git",
@@ -36,6 +37,7 @@
     "chai": "^4.3.7",
     "ejs": "^3.1.8",
     "ffjavascript": "^0.2.57",
-    "js-sha3": "^0.8.0"
+    "js-sha3": "^0.8.0",
+    "mocha": "^10.2.0"
   }
 }
