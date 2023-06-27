@@ -970,9 +970,9 @@ module.exports.Polynomial = class Polynomial {
     }
 
     async multiExponentiation(PTau, name) {
-        const n = this.coef.byteLength / this.Fr.n8;
+        const n = this.degree() + 1;
         const PTauN = PTau.slice(0, n * this.G1.F.n8 * 2);
-        const bm = await this.Fr.batchFromMontgomery(this.coef);
+        const bm = await this.Fr.batchFromMontgomery(this.coef.slice(0, n*this.Fr.n8));
         let res = await this.G1.multiExpAffine(PTauN, bm, this.logger, name);
         res = this.G1.toAffine(res);
         return res;

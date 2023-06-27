@@ -32,7 +32,7 @@ describe("Shplonk test suite", function () {
         const ctx = {};
         let c = 100;
         for(let i = 0; i < pols.length; ++i) {
-            const lengthBuffer = 2 ** (shplonkjs.log2(pols[i].degree) + 1);
+            const lengthBuffer = pols[i].degree + 1;
             ctx[pols[i].name] = new shplonkjs.Polynomial(new BigBuffer(lengthBuffer * sFr), curve);
             for(let j = 0; j <= pols[i].degree; ++j) {
                 ctx[pols[i].name].setCoef(j, curve.Fr.e(c++));
