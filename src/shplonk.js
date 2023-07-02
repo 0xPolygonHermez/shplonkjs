@@ -139,6 +139,12 @@ module.exports.open = async function open(pk, PTau, polynomials, committedPols, 
     // Calculate the xiSeed from all the committed polynomials
     const xiSeed = options.xiSeed ? curve.Fr.e(options.xiSeed) : computeChallengeXiSeed(pk.f.sort((a,b) => a.index - b.index), curve, {logger, fflonkPreviousChallenge: options.fflonkPreviousChallenge });
 
+    // Add the montgomery batched inverse, which is used to calculate the inverses in 
+    // the Solidity verifier, to the evaluations
+    let challengeXi = curve.Fr.exp(xiSeed, pk.powerW);
+
+    if(logger) logger.info(`> Challenge xi: ${curve.Fr.toString(challengeXi)}`);
+
     const nonCommittedPols = options.nonCommittedPols ? options.nonCommittedPols : [];
     
     // Calculate the roots of all the fi
@@ -161,6 +167,8 @@ module.exports.open = async function open(pk, PTau, polynomials, committedPols, 
     const commitW = await W.multiExponentiation(PTau);
     commits.W = commitW;
 
+    if (logger) logger.info("> Commit W: " + curve.G1.toString(commitW));
+
     // Calculate challenge Y from W commit
     const challengeY = computeChallengeY(commitW, challengeAlpha, curve, logger);
 
@@ -170,9 +178,8 @@ module.exports.open = async function open(pk, PTau, polynomials, committedPols, 
     const commitWp = await Wp.multiExponentiation(PTau);
     commits.Wp = commitWp;
 
-    // Add the montgomery batched inverse, which is used to calculate the inverses in 
-    // the Solidity verifier, to the evaluations
-    let challengeXi = curve.Fr.exp(xiSeed, pk.powerW);
+    if (logger) logger.info("> Commit Wp: " + curve.G1.toString(commitWp));
+
     evaluations.inv = getMontgomeryBatchedInverse(pk, roots, challengeY, challengeXi, curve, logger);
 
     // Return W, Wp, the polynomials evaluations, the xiSeed and the opening points
