@@ -48,10 +48,17 @@ exports.calculateEvaluations = function calculateEvaluations(pk, polynomials, xi
     // Firstly, calculate challenge xi, which will be xiSeed ^ lcm(f)
     let challengeXi = curve.Fr.exp(xiSeed, pk.powerW);
     
-    for(let i = 0; i < pk.openingPoints.length; ++i) {
+    let nOpening = [];
+    for(let i = 0; i < pk.f.length; ++i) {
+        for(let j = 0; j < pk.f[i].openingPoints.length; ++j) {
+            if(!nOpening.includes(pk.f[i].openingPoints[j])) nOpening.push(pk.f[i].openingPoints[j])
+        }
+    }
+
+    for(let i = 0; i < nOpening.length; ++i) {
         // Calculate all the subsequent opening points z, zw, zw²... and add it to opening points
         let xi = challengeXi;
-        for(let j = 0; j < pk.openingPoints[i]; ++j) {
+        for(let j = 0; j < nOpening[i]; ++j) {
             xi = curve.Fr.mul(xi, pk["w1_1d1"]);
         }
 
@@ -62,7 +69,7 @@ exports.calculateEvaluations = function calculateEvaluations(pk, polynomials, xi
     const evaluations = {};
     for(let i = 0; i < pk.f.length; ++i) {
         for(let j = 0; j < pk.f[i].openingPoints.length; ++j) {
-            const openingIndex = pk.openingPoints.indexOf(pk.f[i].openingPoints[j]);
+            const openingIndex = nOpening.indexOf(pk.f[i].openingPoints[j]);
             const wPower = pk.f[i].openingPoints[j] === 0 ? "" : pk.f[i].openingPoints[j] === 1 ? "w" : `w${pk.f[i].openingPoints[j]}`;
             for(let k = 0; k < pk.f[i].pols.length; ++k) {    
                 const polName = pk.f[i].pols[k];
@@ -96,10 +103,15 @@ exports.computeW = function computeW(pk, r, roots, challengeAlpha, openingPoints
         challenge = curve.Fr.mul(challenge, challengeAlpha);
     
 
-
+        let nOpening = [];
+        for(let i = 0; i < pk.f.length; ++i) {
+            for(let j = 0; j < pk.f[i].openingPoints.length; ++j) {
+                if(!nOpening.includes(pk.f[i].openingPoints[j])) nOpening.push(pk.f[i].openingPoints[j])
+            }
+        }
         for(let k = 0; k < pk.f[i].openingPoints.length; k++) {
             const nRoots = roots[i][k].length;
-            fi.divByZerofier(nRoots, openingPoints[pk.openingPoints.indexOf(pk.f[i].openingPoints[k])]);
+            fi.divByZerofier(nRoots, openingPoints[nOpening.indexOf(pk.f[i].openingPoints[k])]);
         }
         
         if(i === 0) {

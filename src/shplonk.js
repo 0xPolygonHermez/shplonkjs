@@ -24,12 +24,10 @@ module.exports.setup = async function setup(config, ptauFilename, options = { })
     // Calculate the Powers of Tau (checking its validity first) and store it along with X_2, which will be needed for the verifier
     const {PTau, X_2, curve} = await getPowersOfTau(f, ptauFilename, config.power);
 
-    const openingPoints = [...new Set(f.map(fi => fi.openingPoints).flat())];
     const zkey = {
         power: config.power,
         f,
         X_2,
-        openingPoints,
     };
 
     // Compute each of the generators and the corresponding kth-roots and add it to the zkey
