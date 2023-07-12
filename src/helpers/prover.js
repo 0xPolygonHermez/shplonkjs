@@ -334,8 +334,6 @@ exports.getMontgomeryBatchedInverse = function getMontgomeryBatchedInverse(zkey,
     }
     
     const inverse = curve.Fr.inv(mulAccumulator);
-
-    console.log("Inverse evaluation: ", curve.Fr.toString(inverse));
     
     return inverse;
 }

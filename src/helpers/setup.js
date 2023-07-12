@@ -86,9 +86,6 @@ function calculateMultiplePolsLength(pols, n) {
 }
 
 exports.getFByStage = function getFByStage(config) {
-    let f = [];
-    let index = 0;
-
     const stages = [...new Set(config.polDefs.flat().map(p => p.stage))];
     const polsStages = [];
     for(let i = 0; i < stages.length; ++i) {
@@ -129,29 +126,100 @@ exports.getFByStage = function getFByStage(config) {
 
         polsStages.push(pols);
     }
+    return polsStages;
+}
 
+exports.getFByOpeningPoints = function getFByOpeningPoints(config) {
+    const nOpeningPoints = config.polDefs.length;
+    const polsOpeningPoints = [];
+    for(let i = 0; i < nOpeningPoints; ++i) {  
+        let pols = config.polDefs[i];      
+
+        if((new Set(pols.map(p => p.name))).size !== pols.map(p => p.name).length) throw new Error(`Some polynomials are duplicated in the opening point`);
+        pols = pols.sort((a,b) => a.degree <= b.degree ? 1 : -1);
+
+        for(let j = 0; j < pols.length; ++j) {
+            pols[j].openingPoints = [i];
+        }
+        
+        polsOpeningPoints.push(pols);
+    }
+    return polsOpeningPoints;
+}
+
+exports.getFCustom = function getFCustom(config) {
+    const polsDefs = config.polDefs;
+
+    const fiIndexes = [...new Set(config.polDefs.flat().map(p => p.fi))];
+    for(let i = 0; i < Math.max(...fiIndexes); ++i) {
+        if(!fiIndexes.includes(i)) throw new Error(`fi index ${i} is missing`);
+    }
+
+    const polsCustom = [];
+    for(let i = 0; i < polsDefs.length; ++i) {
+        for(let j = 0; j < polsDefs[i].length; ++j) {
+            if(!polsDefs[i][j].hasOwnProperty("fi")) throw new Error(`fi index not provided for ${polsDefs[i][j].name}`);
+            const index = polsDefs[i][j].fi;
+            if(!polsCustom[index]) polsCustom[index] = [];
+            const polIndex = polsCustom[index].findIndex(p => p.name === polsDefs[i][j].name);
+            if(polIndex !== -1) {
+                if(polsCustom[index][polIndex].openingPoints.includes(i)) throw new Error(`${polsDefs[i][j].name} is duplicated in the ${i}th opening point`);
+                polsCustom[index][polIndex].openingPoints.push(i);
+            } else {
+                polsDefs[i][j].openingPoints = [i];
+                polsCustom[index] = [polsDefs[i][j], ...polsCustom[index]];
+            }
+        }
+    }
+
+    // Check that, when opening by stage, all polynomials are defined in all stages
+    for(let i = 0; i < polsCustom.length; ++i) {
+        const openingPoints = polsCustom[i][0].openingPoints.sort();
+        for(let j = 1; j < polsCustom[i].length; ++j) {
+            const openingPoints2 = polsCustom[i][j].openingPoints.sort();
+            if(JSON.stringify(openingPoints) !== JSON.stringify(openingPoints2)) {
+                const diffOpen1 = openingPoints.filter(element => !openingPoints2.includes(element));
+                const diffOpen2 = openingPoints2.filter(element => !openingPoints.includes(element));
+                
+                if(diffOpen1.length > 0) {
+                    throw new Error(`Polynomial ${polsCustom[i][0].name} is not opening in the following stages: ${diffOpen1}`);
+                }
+
+                if(diffOpen2.length > 0) {
+                    throw new Error(`Polynomial ${polsCustom[i][j].name} is not defined in the following stages: ${diffOpen2}`);
+                }
+            }
+        }
+
+    }
+
+    return polsCustom;
+}
+
+exports.applyExtraScalarMuls = function applyExtraScalarMuls(extraMuls, pols) {
+    let f = [];
+    let index = 0;
+    
     let splittedPols = [];
-    if(Array.isArray(config.extraMuls)) {
-        for(let k = 0; k < polsStages.length; ++k) {
-            const nPols = 1 + config.extraMuls[k];
-            if(nPols > polsStages[k].length) throw new Error(`There are ${polsStages[k].length} polynomials defined in stage ${i} but you are trying to split them in ${nPols}, which is not allowed`);
+    if(Array.isArray(extraMuls)) {
+        for(let k = 0; k < pols.length; ++k) {
+            const nPols = 1 + extraMuls[k];
+            if(nPols > pols[k].length) throw new Error(`There are ${pols[k].length} polynomials defined in ${i}th polinomial but you are trying to split them in ${nPols}, which is not allowed`);
         
             const order = 21888242871839275222246405745257275088548364400416034343698204186575808495616n;
-            const divisors = getDivisors(order, polsStages[k].length);
+            const divisors = getDivisors(order, pols[k].length);
 
-            const splitPols = calculatePolsLength(polsStages[k], nPols, divisors);
-            if(splitPols.length === 0) throw new Error(`It does not exist any way to split ${polsStages[k].length} in ${nPols} different pols`);
+            const splitPols = calculatePolsLength(pols[k], nPols, divisors);
+            if(splitPols.length === 0) throw new Error(`It does not exist any way to split ${pols[k].length} in ${nPols} different pols`);
 
             splittedPols.push(...splitPols);
         } 
     } else {
-        const totalPols = config.extraMuls + stages.length; 
-        if(totalPols > polsStages.flat(Infinity).length) throw new Error(`There are ${polsStages.flat(Infinity).length} pols but ${totalPols} extra muls were asked`);
-        splittedPols = calculateMultiplePolsLength(polsStages, totalPols);
+        const totalPols = extraMuls + pols.length; 
+        if(totalPols > pols.flat(Infinity).length) throw new Error(`There are ${pols.flat(Infinity).length} pols but ${totalPols} extra muls were asked`);
+        splittedPols = calculateMultiplePolsLength(pols, totalPols);
     }
-   
     
-
     // Define the composed polinomial f with all the polinomials provided
     for(let k = 0; k < splittedPols.length; ++k) {
         const p = splittedPols[k];
@@ -167,105 +235,7 @@ exports.getFByStage = function getFByStage(config) {
     
     return f;
 }
-
-exports.getFByOpeningPoints = function getFByOpeningPoints(config) {
-    let f = [];
-    let index = 0;
-
-    const nOpeningPoints = config.polDefs.length;
-    const polsOpeningPoints = [];
-    for(let i = 0; i < nOpeningPoints; ++i) {  
-        let pols = config.polDefs[i];      
-
-        if((new Set(pols.map(p => p.name))).size !== pols.map(p => p.name).length) throw new Error(`Some polynomials are duplicated in the opening point`);
-
-        pols = pols.sort((a,b) => a.degree <= b.degree ? 1 : -1);
-
-        for(let j = 0; j < pols.length; ++j) {
-            pols[j].openingPoints = [i];
-        }
-        
-        polsOpeningPoints.push(pols);
-    }
-
-    const order = 21888242871839275222246405745257275088548364400416034343698204186575808495616n;
-
-    let splittedPols = [];
-    if(Array.isArray(config.extraMuls)) {
-        for(let k = 0; k < polsOpeningPoints.length; ++k) {
-            const nPols = 1 + config.extraMuls[k];
-            if(nPols > polsOpeningPoints[k].length) throw new Error(`There are ${polsOpeningPoints[k].length} polynomials defined in ${i}th opening point but you are trying to split them in ${nPols}, which is not allowed`);
-            
-            let splitPols;
-            if(polsOpeningPoints[k].find(p => p.stage === 0) && polsOpeningPoints[k].filter(p => p.stage !== 0).length > 0) {
-                if(nPols === 0) throw new Error(`At least one extra scalar multiplication is required to isolate stage 0 polynomials for ${i}th opening point`);
-                const polsStage0 = polsOpeningPoints[k].filter(p => p.stage === 0);
-                const otherPols = polsOpeningPoints[k].filter(p => p.stage !== 0);
-                
-                let extraMulsRequired = 1;
-                if(Scalar.neq(Scalar.mod(order, polsStage0.length), 0n)) extraMulsRequired += 1;
-                if(Scalar.neq(Scalar.mod(order, otherPols.length), 0n)) extraMulsRequired += 1;
-
-                if(nPols < extraMulsRequired) throw new Error(`At least ${extraMulsRequired} extra multiplication are needed`);  
-                splitPols = calculateMultiplePolsLength([polsStage0, otherPols], nPols);
-
-            } else {
-                const divisors = getDivisors(order, polsOpeningPoints[k].length);
-                splitPols = calculatePolsLength(polsOpeningPoints[k], nPols, divisors);
-            }
-
-            if(splitPols.length === 0) throw new Error(`It does not exist any way to split ${polsOpeningPoints[k].length} in ${nPols} different pols`);
-
-            splittedPols.push(...splitPols);
-        } 
-    } else {
-        let totalPols = config.extraMuls + nOpeningPoints;
-        const pols = [];
-        let extraMuls = config.extraMuls;
-        for(let k = 0; k < polsOpeningPoints.length; ++k) {
-            if(polsOpeningPoints[k].find(p => p.stage === 0) && polsOpeningPoints[k].filter(p => p.stage !== 0).length > 0) {
-                const polsStage0 = polsOpeningPoints[k].filter(p => p.stage === 0);
-                const otherPols = polsOpeningPoints[k].filter(p => p.stage !== 0);
-
-                pols.push(polsStage0);
-                pols.push(otherPols);
-                extraMuls -= 1;
-                if(Scalar.neq(Scalar.mod(order, polsStage0.length), 0n)) extraMuls -= 1;
-                if(Scalar.neq(Scalar.mod(order, otherPols.length),0n)) extraMuls -= 1;
-            } else {
-                if(Scalar.neq(Scalar.mod(order, polsOpeningPoints[k].length), 0n)) extraMuls -= 1;
-                pols.push(polsOpeningPoints[k]);
-            }
-            if(extraMuls < 0) throw new Error(`Not enough extra scalar multiplications were provided`);
-        }
-
-        if(totalPols > pols.flat(Infinity).length) throw new Error(`Extra muls (${totalPols}) can not be higher than the total number of pols (${pols.flat(Infinity).length})`);
-        splittedPols = calculateMultiplePolsLength(pols, totalPols);
-    }
-    
-    // Define the composed polinomial f with all the polinomials provided
-    for(let k = 0; k < splittedPols.length; ++k) {
-        const p = splittedPols[k];
-        const degrees = p.map((pi, index) => pi.degree*splittedPols[k].length + index);
-        const fiDegree = Math.max(...degrees);
-        const polsNames = p.map(pi => pi.name);
-        const stages = {};
-        for(let l = 0; l < p.length; ++l) {
-            if(!stages[p[l].stage]) stages[p[l].stage] = [];
-            stages[p[l].stage].push({name: p[l].name, degree: p[l].degree});
-        }
-
-        const stagesArray = [];
-        for(let l = 0; l < Object.keys(stages).length; ++l){
-            const stage = Number(Object.keys(stages)[l]);
-            stagesArray.push({stage: stage, pols: stages[stage] })
-        }
-        const fi = {index: index++, pols: polsNames, openingPoints: p[0].openingPoints, degree: fiDegree, stages: stagesArray};
-        f.push(fi);
-    }
-    
-    return f;
-}
+   
 
 async function readPTauHeader(fd, sections) {
     if (!sections[1])  throw new Error(fd.fileName + ": File has no  header");

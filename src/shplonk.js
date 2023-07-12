@@ -2,7 +2,7 @@ const { calculateRoots, computeChallengeAlpha, computeChallengeXiSeed, computeCh
 const { calculateEvaluations, computeR, computeW, computeWp, getMontgomeryBatchedInverse } = require("./helpers/prover.js");
 const { calculateQuotients, computeE, computeF, computeJ, computeRVerifier, isValidPairing } = require("./helpers/verifier.js");
 const { lcm } = require("./utils.js");
-const { computeRootWi, computeWi, getFByStage, getFByOpeningPoints, getPowersOfTau, getPowersW } = require("./helpers/setup.js");
+const { computeRootWi, computeWi, getFByStage, getFByOpeningPoints, getPowersOfTau, getPowersW, applyExtraScalarMuls, getFCustom } = require("./helpers/setup.js");
 const {CPolynomial} = require("./polynomial/cpolynomial.js");
 
 module.exports.setup = async function setup(config, ptauFilename, options = { }) {
@@ -10,11 +10,17 @@ module.exports.setup = async function setup(config, ptauFilename, options = { })
     const logger = options.logger;
 
     //fi polynomials can only be created either by stage or by opening points.
-    if(!["stage", "openingPoints"].includes(config.openBy)) throw new Error(`${config.openBy} is not valid. You can only openBy polynomials by "stage" or "openingPoints".`);
+    if(!["stage", "openingPoints", "custom"].includes(config.openBy)) throw new Error(`${config.openBy} is not valid. You can only openBy polynomials by "stage" or "openingPoints".`);
     
     // Given a config, calculate the fi composed polynomials that will be used in the protocol
-    const f = config.openBy === "stage" ? getFByStage(config) : getFByOpeningPoints(config);
+    const initialPols = config.openBy === "stage" 
+        ? getFByStage(config) 
+        : config.openBy === "openingPoints" 
+            ? getFByOpeningPoints(config) 
+            : getFCustom(config);
 
+    const f = applyExtraScalarMuls(config.extraMuls, initialPols);
+        
     // Currently, the base case in which only one fi is provided is not supported
     if(f.length === 1) throw new Error("Need to provide at least two fi.");
 
@@ -135,7 +141,7 @@ module.exports.open = async function open(pk, PTau, polynomials, committedPols, 
     }
 
     // Calculate the xiSeed from all the committed polynomials
-    const xiSeed = options.xiSeed ? curve.Fr.e(options.xiSeed) : computeChallengeXiSeed(pk.f.sort((a,b) => a.index - b.index), curve, {logger, fflonkPreviousChallenge: options.fflonkPreviousChallenge });
+    const xiSeed = options.xiSeed ? curve.Fr.e(options.xiSeed) : computeChallengeXiSeed(pk.f.sort((a,b) => a.index - b.index), curve, {logger, previousChallenge: options.previousChallenge });
 
     // Add the montgomery batched inverse, which is used to calculate the inverses in 
     // the Solidity verifier, to the evaluations
@@ -198,7 +204,7 @@ module.exports.verifyOpenings = async function verifyOpenings(vk, commits, evalu
     }
 
     // Calculate the xiSeed from all the committed polynomials
-    const xiSeed =  options.xiSeed ? curve.Fr.e(options.xiSeed) : computeChallengeXiSeed(vk.f.sort((a,b) => a.index - b.index), curve, {logger, fflonkPreviousChallenge: options.fflonkPreviousChallenge});
+    const xiSeed =  options.xiSeed ? curve.Fr.e(options.xiSeed) : computeChallengeXiSeed(vk.f.sort((a,b) => a.index - b.index), curve, {logger, previousChallenge: options.previousChallenge});
 
     const nonCommittedPols = options.nonCommittedPols ? options.nonCommittedPols : [];
 

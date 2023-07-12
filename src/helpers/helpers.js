@@ -15,8 +15,8 @@ module.exports.computeChallengeXiSeed = function computeChallengeXiSeed(commits,
     // Initialize new transcript
     const transcript = new Keccak256Transcript(curve);
 
-    if(options.fflonkPreviousChallenge) {
-        transcript.addScalar(options.fflonkPreviousChallenge);
+    if(options.previousChallenge) {
+        transcript.addScalar(options.previousChallenge);
         commits = commits.filter(c => c.stages[0].stage !== 0);
     }
 

@@ -418,5 +418,36 @@ describe("Shplonk test suite", function () {
         });
     });
 
+    describe("Testing shplonk using setup by custom",() => {
+        it("shplonk full basic test with scalar multiplications pols specified by user", async () => {
+            const ptauFilename = path.join("test", "powersOfTau15_final.ptau");
+    
+            const config = {
+                "power": 5,
+                "polDefs": [
+                    [
+                        {"name": "P1", "stage": 0, "degree": 32, "fi": 0},
+                        {"name": "P2", "stage": 0, "degree": 27, "fi": 1},
+                        {"name": "PZ", "stage": 0, "degree": 45, "fi": 0},
+                        {"name": "PT", "stage": 0, "degree": 33, "fi": 0},
+                        {"name": "P3", "stage": 1, "degree": 33, "fi": 0},
+                        {"name": "PL", "stage": 1, "degree": 33, "fi": 0},
+                        {"name": "PK", "stage": 2, "degree": 33, "fi": 1},
+                        {"name": "P4", "stage": 2, "degree": 34, "fi": 2},
+                    ],
+                    [
+                        {"name": "P4", "stage": 2, "degree": 34, "fi": 2},
+                        {"name": "P5", "stage": 2, "degree": 33, "fi": 3},
+                        {"name": "P6", "stage": 2, "degree": 101, "fi": 3},
+                    ],  
+                ], 
+                "extraMuls": 2,
+                "openBy": 'custom',
+            };
+    
+            await shPlonkTest(config, ptauFilename);
+        });
+    });
+
     
 });
