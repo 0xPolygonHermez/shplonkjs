@@ -182,11 +182,11 @@ exports.getFCustom = function getFCustom(config) {
                 const diffOpen2 = openingPoints2.filter(element => !openingPoints.includes(element));
                 
                 if(diffOpen1.length > 0) {
-                    throw new Error(`Polynomial ${polsCustom[i][0].name} is not opening in the following stages: ${diffOpen1}`);
+                    throw new Error(`Polynomial ${polsCustom[i][j].name} is not opening in the following stages: ${diffOpen1}`);
                 }
 
                 if(diffOpen2.length > 0) {
-                    throw new Error(`Polynomial ${polsCustom[i][j].name} is not defined in the following stages: ${diffOpen2}`);
+                    throw new Error(`Polynomial ${polsCustom[i][0].name} is not defined in the following stages: ${diffOpen2}`);
                 }
             }
         }
