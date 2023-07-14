@@ -2,6 +2,8 @@ const {BigBuffer, getCurveFromName} = require("ffjavascript");
 const path = require("path");
 const assert = require("assert");
 
+const Logger = require('logplease');
+
 const { setup, commit, open, verifyOpenings } = require("../src/shplonk");
 const { Polynomial } = require("..");
 
@@ -19,7 +21,12 @@ describe("Shplonk test suite", function () {
     });
 
     async function shPlonkTest(config, ptauFilename, options = {}) {
-        const {zkey, PTau} = await setup(config, ptauFilename);
+        const logger = Logger.create("pil-fflonk", {showTimestamp: false});
+        Logger.setLogLevel("DEBUG");
+
+        options.logger = logger;
+
+        const {zkey, PTau} = await setup(config, ptauFilename, options);
     
         const sFr = curve.Fr.n8;    
 
@@ -46,7 +53,7 @@ describe("Shplonk test suite", function () {
 
         const stages = [...new Set(config.polDefs.flat().map(p => p.stage))];
         for(let i = 0; i < stages.length; ++i) {
-            const commitsStage = await commit(stages[i], zkey, ctx, PTau, curve, {multiExp: true});        
+            const commitsStage = await commit(stages[i], zkey, ctx, PTau, curve, {multiExp: true, logger});        
             for(let j = 0; j < commitsStage.length; ++j) {
                 committedPols[`${commitsStage[j].index}`] = {commit: commitsStage[j].commit, pol: commitsStage[j].pol}
             }

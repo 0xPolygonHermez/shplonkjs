@@ -221,11 +221,25 @@ module.exports.verifyOpenings = async function verifyOpenings(vk, commits, evalu
     const challengeY = computeChallengeY(commits.W, challengeAlpha, curve, logger);
     let challengeXi = curve.Fr.exp(xiSeed, vk.powerW);
 
-    // Calculate the evaluation of each ri at challengeY
-    const r = computeRVerifier(vk, orderedEvals, roots, challengeY, challengeXi, curve, logger);
+    const toInverse = [];
 
     // Calculate quotients of the roots so that it is easier to calculate F and E
-    const quotients = calculateQuotients(challengeY, challengeAlpha, roots, curve, logger);
+    const quotients = calculateQuotients(vk, toInverse, challengeY, challengeAlpha, roots, curve, logger);
+
+    // Calculate the evaluation of each ri at challengeY
+    const r = computeRVerifier(vk, toInverse, orderedEvals, roots, challengeY, challengeXi, curve, logger);
+    
+    // Verify montgomery batched inverse evaluation
+    if(logger) logger.info("Checking that montogmery batched inverse is properly calculated");
+    let mulAccumulator = curve.Fr.one;
+    for(let i = 0; i < toInverse.length; ++i) { 
+        mulAccumulator = curve.Fr.mul(mulAccumulator, toInverse[i]);
+    }
+
+    if(!curve.Fr.eq(curve.Fr.mul(mulAccumulator, evaluations.inv), curve.Fr.one)) {
+        if(logger) logger.warn("Invalid Montgomery Batched Inverse");
+        return false;
+    }
 
     // In order to verify the openings, the following calculation needs to be computed: e([F]_1 - [E] - [J] + y[W'], [1]) = e([W'], [x]);
 
