@@ -67,22 +67,35 @@ function calculateMultiplePolsLength(pols, n) {
     let possibleCombinations = [];
     calculateSumCombinations([], lengths, 0, n - pols.length, 0, possibleCombinations)
 
-    let maxDegree;
     let splitPol;
     for(let i = 0; i < possibleCombinations.length; ++i) {
         const split = possibleCombinations[i].map((c, index) => calculatePolsLength(pols[index], c + 1, divisors[index]));
-        const degs = split.map((s, index) => calculateDegree(s.map(si => si.length), pols[index]));
-        const finalDeg = Math.max(...degs);
-        if(!maxDegree || finalDeg < maxDegree) {
-            maxDegree = finalDeg;
-            splitPol = [];
-            for(let j = 0; j < split.length; ++j) {
-                splitPol = [...splitPol, ...split[j]];
-            }
+
+        if(!splitPol || compareSplits(pols, splitPol, split)) {
+            splitPol = split;
         }
     }
 
-    return splitPol;
+    const fis = [];
+    for(let j = 0; j < splitPol.length; ++j) {
+        fis.push(...splitPol[j]);
+    }
+
+    return fis;
+}
+
+function compareSplits(pols, selectedSplit, possibleSplit) {
+    if(selectedSplit.length !== possibleSplit.length) throw new Error("Both splits should have the same length");
+
+    const degsSelected = selectedSplit.map((s, index) => calculateDegree(s.map(si => si.length), pols[index])).sort((a, b) => b - a);
+    const degsPossible = possibleSplit.map((s, index) => calculateDegree(s.map(si => si.length), pols[index])).sort((a, b) => b - a);
+
+    for(let i = 0; i < selectedSplit.length; ++i) {
+        if(degsPossible[i] > degsSelected[i]) return false;
+        if(degsPossible[i] < degsSelected[i]) return true;
+    }
+
+    return false;
 }
 
 exports.getFByStage = function getFByStage(config) {
