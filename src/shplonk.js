@@ -19,7 +19,9 @@ module.exports.setup = async function setup(config, ptauFilename, options = { })
             ? getFByOpeningPoints(config) 
             : getFCustom(config);
 
-    const f = applyExtraScalarMuls(config.extraMuls, initialPols);
+    const extraMuls = options.maxExtraMuls ? initialPols.reduce((acc, curr) => curr.length - 1 + acc, 0) : config.extraMuls;
+
+    const f = applyExtraScalarMuls(extraMuls, initialPols);
         
     // Currently, the base case in which only one fi is provided is not supported
     if(f.length === 1) throw new Error("Need to provide at least two fi.");
