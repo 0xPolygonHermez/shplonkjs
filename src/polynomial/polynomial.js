@@ -665,25 +665,37 @@ module.exports.Polynomial = class Polynomial {
     }
 
     divZh(domainSize, extensions = 4) {
+        const length = 2 ** Math.ceil(Math.log2(this.degree() + 1 - domainSize));
+        const newBuffer = new Uint8Array(length * this.Fr.n8);
+
         for (let i = 0; i < domainSize; i++) {
             const i_n8 = i * this.Fr.n8;
-            this.coef.set(this.Fr.neg(this.coef.slice(i_n8, i_n8 + this.Fr.n8)), i_n8);
+            this.coef.set(
+                this.Fr.neg(this.coef.slice(i_n8, i_n8 + this.Fr.n8)),
+                i_n8
+            );
         }
 
         for (let i = domainSize; i < domainSize * extensions; i++) {
             const i_n8 = i * this.Fr.n8;
 
             const a = this.Fr.sub(
-                this.coef.slice((i - domainSize) * this.Fr.n8, (i - domainSize) * this.Fr.n8 + this.Fr.n8),
+                this.coef.slice(
+                    (i - domainSize) * this.Fr.n8,
+                    (i - domainSize) * this.Fr.n8 + this.Fr.n8
+                ),
                 this.coef.slice(i_n8, i_n8 + this.Fr.n8)
             );
             this.coef.set(a, i_n8);
-            if (i > (domainSize * (extensions-1) - extensions)) {
+            if (i > domainSize * (extensions - 1) - extensions) {
                 if (!this.Fr.isZero(a)) {
                     throw new Error("Polynomial is not divisible");
                 }
             }
         }
+        newBuffer.set(this.coef.slice(0, (this.degree() + 1) * this.Fr.n8), 0);
+
+        this.coef = newBuffer;
 
         return this;
     }
