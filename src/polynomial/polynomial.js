@@ -665,7 +665,7 @@ module.exports.Polynomial = class Polynomial {
     }
 
     divZh(domainSize, extensions = 4) {
-        const length = 2 ** Math.ceil(Math.log2(this.degree() + 1 - domainSize));
+        const length = this.degree() + 1 < domainSize ? domainSize : 2 ** Math.ceil(Math.log2(this.degree() + 1 - domainSize));
         const newBuffer = new Uint8Array(length * this.Fr.n8);
 
         for (let i = 0; i < domainSize; i++) {
