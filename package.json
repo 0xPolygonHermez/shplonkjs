@@ -25,8 +25,8 @@
     "polynomial",
     "commitment"
   ],
-  "author": "Polygon zkEVM",
-  "license": "MIT",
+  "author": "Polygon Hermez",
+  "license": "(MIT OR Apache-2.0)",
   "bugs": {
     "url": "https://github.com/0xPolygonHermez/shplonkjs/issues"
   },
